@@ -120,6 +120,11 @@ function EntryForm({ loaded, meId, isManager }: { loaded: Loaded; meId: string; 
     }
   }, [editing, order.id, meId, workDate, navigate])
 
+  // Once hours are set, the "add your hours" reminder has done its job.
+  useEffect(() => {
+    if (minutes > 0) setError((current) => (current && /hours/.test(current) ? null : current))
+  }, [minutes])
+
   function setCount(key: CountKey, value: string) {
     if (value === '' || /^\d{0,4}$/.test(value)) setCounts((c) => ({ ...c, [key]: value }))
   }

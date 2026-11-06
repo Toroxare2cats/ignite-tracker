@@ -11,7 +11,7 @@
     "test": "npm run privacy-test",
     "privacy-test": "tsx scripts/privacy-test.ts",
     "seed": "tsx scripts/seed.ts",
-    "db:push": "supabase db push"
+    "db:push": "supabase db push --linked"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.58.0",

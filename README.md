@@ -13,7 +13,9 @@ on each order each day; managers price designs from real costs.
 | --- | --- |
 | `npm run dev` | Run the app locally |
 | `npm run build` | Production build into `dist/` |
+| `npm run test` | Privacy test, then the screen tests |
 | `npm run privacy-test` | Prove the permission rules with a real artist login |
+| `npm run ui-test` | Playwright screen tests in a phone-sized browser (needs `npx playwright install chromium` once) |
 | `npm run seed` | Create the seed accounts, designs and orders |
 | `npm run db:push` | Apply migrations to the linked Supabase project |
 

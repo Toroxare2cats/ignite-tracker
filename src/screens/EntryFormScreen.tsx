@@ -120,10 +120,14 @@ function EntryForm({ loaded, meId, isManager }: { loaded: Loaded; meId: string; 
     }
   }, [editing, order.id, meId, workDate, navigate])
 
-  // Once hours are set, the "add your hours" reminder has done its job.
-  useEffect(() => {
-    if (minutes > 0) setError((current) => (current && /hours/.test(current) ? null : current))
-  }, [minutes])
+  // Setting hours also clears the "add your hours" reminder.
+  function chooseMinutes(next: number | ((m: number) => number)) {
+    setMinutes((m) => {
+      const value = typeof next === "function" ? next(m) : next
+      if (value > 0) setError((current) => (current && /hours/.test(current) ? null : current))
+      return value
+    })
+  }
 
   function setCount(key: CountKey, value: string) {
     if (value === '' || /^\d{0,4}$/.test(value)) setCounts((c) => ({ ...c, [key]: value }))
@@ -301,16 +305,16 @@ function EntryForm({ loaded, meId, isManager }: { loaded: Loaded; meId: string; 
           </div>
           <div className="chips" role="group" aria-label="Quick hours">
             {CHIPS.map((m) => (
-              <button type="button" key={m} className={minutes === m ? 'chip selected' : 'chip'} onClick={() => setMinutes(m)}>
+              <button type="button" key={m} className={minutes === m ? 'chip selected' : 'chip'} onClick={() => chooseMinutes(m)}>
                 {formatMinutes(m)}
               </button>
             ))}
           </div>
           <div className="chips" style={{ marginTop: 8 }}>
-            <button type="button" className="chip adjust" onClick={() => setMinutes((m) => Math.max(0, m - 15))} aria-label="15 minutes less">
+            <button type="button" className="chip adjust" onClick={() => chooseMinutes((m) => Math.max(0, m - 15))} aria-label="15 minutes less">
               −15m
             </button>
-            <button type="button" className="chip adjust" onClick={() => setMinutes((m) => Math.min(1440, m + 15))} aria-label="15 minutes more">
+            <button type="button" className="chip adjust" onClick={() => chooseMinutes((m) => Math.min(1440, m + 15))} aria-label="15 minutes more">
               +15m
             </button>
           </div>
@@ -325,7 +329,7 @@ function EntryForm({ loaded, meId, isManager }: { loaded: Loaded; meId: string; 
                 max={24}
                 value={Math.floor(minutes / 60) || ''}
                 placeholder="0"
-                onChange={(e) => setMinutes(clampMinutes(Number(e.target.value || 0) * 60 + (minutes % 60)))}
+                onChange={(e) => chooseMinutes(clampMinutes(Number(e.target.value || 0) * 60 + (minutes % 60)))}
               />
             </div>
             <div>
@@ -338,7 +342,7 @@ function EntryForm({ loaded, meId, isManager }: { loaded: Loaded; meId: string; 
                 max={59}
                 value={minutes % 60 || ''}
                 placeholder="0"
-                onChange={(e) => setMinutes(clampMinutes(Math.floor(minutes / 60) * 60 + Number(e.target.value || 0)))}
+                onChange={(e) => chooseMinutes(clampMinutes(Math.floor(minutes / 60) * 60 + Number(e.target.value || 0)))}
               />
             </div>
           </div>

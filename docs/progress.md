@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-06, at the end of Session 1. Update this file at the end of every session.
+Last updated: 2026-11-06, at the end of Session 2. Update this file at the end of every session.
 
 ## Session 1 — Foundation (complete, 2026-11-06)
 
@@ -40,13 +40,49 @@ Done-when from the plan, all met: Arvin and the test artist can sign in at the t
 ### Left unfinished or deferred
 
 - Custom address `tracker.igniteglass.com` is not attached; that is session 6.
-- Playwright screen tests are named in `CLAUDE.md` but not installed yet; add them in session 2 (adding packages is allowed there, updating existing ones is not).
+- Playwright screen tests are named in `CLAUDE.md` but not installed yet; added in session 2.
 - No scheduled functions yet: reminders are session 7, calendar sync is session 8. The calendar tables hold only the seed fixture.
 - `push_subscriptions` exists as a table; no push code yet.
 - Supabase is on the Free plan; upgrade in session 6 before artists depend on it.
-- All artist and manager screens beyond sign-in are still to build (sessions 2 to 5).
+- All artist and manager screens beyond sign-in are still to build (artist screens: session 2; manager portal: sessions 3 to 5).
 - For Arvin: move the passwords out of `.local/seed-accounts.txt` into a password manager and delete the file; give Ben and Amelia their passwords privately.
 
-## Session 2 — Artist flow (not started)
+## Session 2 — Artist flow (complete, 2026-11-06)
 
-Start it with `docs/session-2-kickoff.md`.
+Done-when from the plan: install the app on a phone, log an entry on a sample order in under a minute, and the icon launches full-screen. Arvin checks the phone install himself; everything else was checked with the automated screen tests, signed in as the test artist on a phone-sized browser.
+
+### What exists now
+
+**Artist screens** (every signed-in person sees them; the manager portal comes in session 3). Three tabs along the bottom: My Work, My Week, Materials.
+
+- **My Work** (`/`): orders where the person is primary artist, orders they logged on in the last 14 days, a search box over every open or finished order (by order or design name), and a count of open tasks (reads from `task_assignees`; the Tasks screen itself is session 5). Sign out is at the top.
+- **Order** (`/orders/:id`): name, status badge, product image if the design has one, design, quantity (dabbers only when the design has them), due date (late dates in red), primary artist, finished-by details; a prominent "Add today's entry" button that becomes "Edit today's entry" once the person has logged today; a collapsible Resources section (dimensions, colors and finishes, instructions, reference photos with tap-to-enlarge); the shared work log, newest first, showing each entry's artist, date, counts as pills, note, and hours only on the viewer's own entries (managers see all hours because `entry_time` returns them all rows), plus the "Edited by … · time" marker. Closed orders show a notice instead of the button.
+- **Add entry** (`/orders/:id/entry`): the brief's field order. Work date (defaults to today; artists limited to the last 7 days), bottles, dabbers (only if the design has a dabber), Prep collapsed under one heading (points, color tube preps, blanks), fuming (only if fumed), hours as 15-minute chips (15m to 8h) with −15m / +15m and free hour/minute boxes, note. Hours are required; counts are optional. Save disables the button while saving; the database's one-entry-per-artist-per-order-per-day rule catches anything else and the app then updates the existing entry instead. A failed save keeps what was typed. The confirmation screen shows the summary and offers "Add another order" (back to My Work with a "pick the next order" notice) and "Back to this order".
+- **Editing** (`/entries/:id`): the same form loaded with an existing entry. Artists edit or delete their own entries within 7 days of the work date; older ones open read-only with an explanation. Managers can edit any entry, including its date. Deleting asks for confirmation first.
+- **My Week** (`/week`): This week / Last week (Monday to Sunday), a totals card (hours, and each count type on its own, never added together), then every day with its entries, order names, counts and hours. Calendar events and completed tasks are added in sessions 8 and 5.
+- **Materials** (`/materials`): "Record a purchase" opens the form: what was bought, amount, "An order" (pick from open orders) or "Studio stock", optional receipt photo (camera on phones; files go to `receipts/<own id>/…`). Submissions start pending. Below, the person's own submissions with status, order or stock, time, a rejection reason if any, and a "View receipt" link that makes a short-lived signed URL.
+
+**Installable app.** `vite-plugin-pwa` generates `manifest.webmanifest` (name Ignite Tracker, short name Ignite, standalone full-screen, portrait, orange theme) and a service worker that caches only the app's own built files and updates itself in the background. Icons: `public/icon.svg` (source), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` (Android), `apple-touch-icon.png` (iPhone). The iPhone meta tags are in `index.html`. Nothing from the database is cached.
+
+**Screen tests.** Playwright (`npm run ui-test`, Chromium only, phone-sized), signed in as the test artist from `.env`; `tests/editing.spec.ts` also signs in as the test manager to plant an entry older than 7 days. Seven tests cover My Work, Order, the entry form (design-driven fields, hours required, chips, confirmation, no duplicate, log), editing rules (marker, read-only after 7 days, database refusal, delete), My Week and Materials. Screenshots land in `test-results/screens/`. `npm run test` now runs the privacy test and then the screen tests.
+
+**New packages** (added, nothing existing updated): `react-router-dom`, `vite-plugin-pwa`, `@playwright/test`.
+
+### Decisions made during the session
+
+- Weeks run Monday to Sunday in My Week. The brief does not say; change it in `src/lib/dates.ts` (`weekStart`) if the studio counts weeks differently.
+- An artist cannot change the work date of an existing entry (delete and re-add instead); a manager can. This keeps "one entry per artist per order per day" simple on the phone.
+- Opening "Add today's entry" when today's entry already exists goes straight to editing it, so a second phone or a repeated tap never makes a duplicate.
+- The entry form's hours chips are fixed totals (15m … 8h) plus −15m / +15m and free entry, which covers the brief's "15-minute tap-chips plus free entry" without a long row of buttons.
+- Managers use the same artist screens for now and see hours on every entry. The manager portal is session 3.
+
+### Left unfinished or deferred
+
+- The task count on My Work reads the real tables but the Tasks screen is session 5.
+- My Week has no calendar events (session 8) or completed tasks (session 5) yet.
+- Studio time entries (brief, "Time") have a table but no screen yet; add it alongside the reconciliation work in session 4.
+- Custom address, Supabase Pro, reminders, calendar sync: unchanged from session 1's list.
+- The production JavaScript bundle is about 517 kB; fine for now, but a later session could split it so the first open is quicker on slow connections.
+- The Playwright tests leave today's test entries on the sample orders (they clean up purchases and the planted old entries). Harmless on sample data; delete them from the manager portal once it exists.
+
+## Session 3 — Manager portal (not started)

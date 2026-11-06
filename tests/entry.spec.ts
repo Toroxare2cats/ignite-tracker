@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { openTodaysEntry, shot, signInAsArtist } from './helpers.ts'
+import { shot, signInAsArtist } from './helpers.ts'
 
 async function openOrder(page: Page, search: string) {
   await page.getByLabel('Find any open order').fill(search)

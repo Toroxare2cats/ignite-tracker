@@ -49,7 +49,7 @@ Done-when from the plan, all met: Arvin and the test artist can sign in at the t
 
 ## Session 2 — Artist flow (complete, 2026-11-06)
 
-Done-when from the plan: install the app on a phone, log an entry on a sample order in under a minute, and the icon launches full-screen. Arvin checks the phone install himself; everything else was checked with the automated screen tests, signed in as the test artist on a phone-sized browser.
+Done-when from the plan: install the app on a phone, log an entry on a sample order in under a minute, and the icon launches full-screen. Arvin confirmed on 2026-11-06 that the icon installed and launched full-screen on his phone; everything else was checked with the automated screen tests, signed in as the test artist on a phone-sized browser.
 
 ### What exists now
 

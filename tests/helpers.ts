@@ -28,3 +28,18 @@ export async function signInAsManager(page: Page): Promise<void> {
 export async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true })
 }
+
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
+/** A database client signed in as the test manager, for fixtures and clean-up. */
+export async function managerClient(): Promise<SupabaseClient> {
+  const client = createClient(need('VITE_SUPABASE_URL'), need('VITE_SUPABASE_ANON_KEY'), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { error } = await client.auth.signInWithPassword({
+    email: need('PRIVACY_TEST_MANAGER_EMAIL'),
+    password: need('PRIVACY_TEST_MANAGER_PASSWORD'),
+  })
+  if (error) throw new Error(`manager sign-in failed: ${error.message}`)
+  return client
+}

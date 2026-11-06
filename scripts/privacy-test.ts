@@ -16,9 +16,9 @@
  *      or be refused.
  *   4. As the manager, performs the same reads and calls.  Each must succeed
  *      with at least one row, so a rule that locks everyone out cannot pass.
- *   5. Confirms row-level security is switched on for every table and that no
- *      artist-readable table (task, personal-list and calendar tables
- *      included) has a money column.
+ *   5. Confirms public sign-up is switched off, row-level security is switched
+ *      on for every table, and no artist-readable table (task, personal-list
+ *      and calendar tables included) has a money column.
  *   6. Deletes the fixtures, even when a check fails.
  *
  * Exit code 0 only when every check passes.  Any missing setting, failed
@@ -520,6 +520,23 @@ async function main(): Promise<number> {
     // Structure: RLS on every table, no money columns where artists can read
     // -----------------------------------------------------------------------
     console.log('\n--- Structure ---')
+    {
+      // Public sign-up must be off.  The app's public key is visible to anyone
+      // who opens the site; with sign-up on, a stranger could create an account.
+      // (New accounts also start inactive, migration 0010, as a second line.)
+      try {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } })
+        const settings = (await res.json()) as { disable_signup?: boolean }
+        const off = settings.disable_signup === true
+        record(
+          'public sign-up is switched off',
+          off,
+          off ? 'disable_signup = true' : 'turn off "Allow new users to sign up" under Authentication > Sign In / Providers in the Supabase dashboard',
+        )
+      } catch (e) {
+        record('public sign-up is switched off', false, (e as Error).message)
+      }
+    }
     {
       const { data, error } = await mgr.rpc('rls_status')
       if (error) {

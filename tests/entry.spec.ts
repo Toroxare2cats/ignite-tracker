@@ -75,6 +75,14 @@ test('save an entry: hours required, chips, confirmation, no duplicate, shows in
   await expect(logRow).toContainText('2 fumed')
   await expect(logRow).toContainText('1h 45m')
   await expect(logRow).toContainText('Playwright test entry')
+
+  // The "Logged so far" card totals each activity separately and never shows a
+  // percentage or finished figure (rule 3).
+  const soFar = page.locator('.logged-so-far')
+  await expect(soFar).toContainText('Logged so far')
+  await expect(soFar).toContainText('bottles')
+  await expect(soFar).toContainText('fumed')
+  await expect(soFar).not.toContainText('%')
   await shot(page, '03-order-with-log')
 
   // Opening the form again for today edits the same entry instead of adding one.

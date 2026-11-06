@@ -10,7 +10,7 @@ import {
   signedUrl,
   signedUrls,
 } from '../lib/queries.ts'
-import { describeCounts, type DesignPhoto, type EntryWithTime, type OrderWithDesign, type Person } from '../lib/types.ts'
+import { COUNT_FIELDS, describeCounts, type Counts, type DesignPhoto, type EntryWithTime, type OrderWithDesign, type Person } from '../lib/types.ts'
 import { BackLink, DueDate, ErrorNote, Loading, StatusBadge } from '../components/ui.tsx'
 
 interface Data {
@@ -170,6 +170,7 @@ export default function OrderScreen() {
       </details>
 
       <h2>Work log</h2>
+      <LoggedSoFar entries={entries} />
       <ul className="list">
         {entries.length === 0 && <li className="empty">Nothing logged on this order yet.</li>}
         {entries.map((e) => (
@@ -237,4 +238,33 @@ function LogEntry({
     )
   }
   return <li className={own ? 'log-entry own' : 'log-entry'}>{body}</li>
+}
+
+/**
+ * Running totals of what has been logged on the order, each activity kept
+ * separate (rule 3).  These are counts logged by artists, not finished or
+ * delivered bottles, so the wording says "logged" and there is no bar or
+ * percentage against the ordered quantity.
+ */
+function LoggedSoFar({ entries }: { entries: EntryWithTime[] }) {
+  if (entries.length === 0) return null
+  const totals = {} as Counts
+  for (const f of COUNT_FIELDS) totals[f.key] = entries.reduce((sum, e) => sum + (e[f.key] ?? 0), 0) || null
+  const parts = describeCounts(totals)
+  const artists = new Set(entries.map((e) => e.artist_id)).size
+  return (
+    <div className="card logged-so-far">
+      <p className="small muted" style={{ margin: 0 }}>
+        Logged so far · {entries.length} {entries.length === 1 ? 'entry' : 'entries'} by {artists} {artists === 1 ? 'artist' : 'artists'}
+      </p>
+      <div className="week-totals">
+        {parts.length === 0 && <span className="muted small">No counts logged yet</span>}
+        {parts.map((p) => (
+          <span key={p} className="count-pill">
+            {p}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 }

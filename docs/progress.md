@@ -73,6 +73,7 @@ Done-when from the plan: install the app on a phone, log an entry on a sample or
 - Weeks run Monday to Sunday in My Week. The brief does not say; change it in `src/lib/dates.ts` (`weekStart`) if the studio counts weeks differently.
 - An artist cannot change the work date of an existing entry (delete and re-add instead); a manager can. This keeps "one entry per artist per order per day" simple on the phone.
 - Opening "Add today's entry" when today's entry already exists goes straight to editing it, so a second phone or a repeated tap never makes a duplicate.
+- The order page shows a "Logged so far" card above the work log: entries, artists and each activity count totalled separately. It is worded as logged counts, with no bar or percentage against the ordered quantity, because daily counts are what went in the kiln, not what survived (rule 3). Added after Arvin's first phone test on 2026-11-06; a true completion indicator would be a change to the brief.
 - The entry form's hours chips are fixed totals (15m … 8h) plus −15m / +15m and free entry, which covers the brief's "15-minute tap-chips plus free entry" without a long row of buttons.
 - Managers use the same artist screens for now and see hours on every entry. The manager portal is session 3.
 

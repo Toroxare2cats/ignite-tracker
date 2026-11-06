@@ -49,7 +49,7 @@ Done-when from the plan, all met: Arvin and the test artist can sign in at the t
 
 ## Session 2 — Artist flow (complete, 2026-11-06)
 
-Done-when from the plan: install the app on a phone, log an entry on a sample order in under a minute, and the icon launches full-screen. Arvin confirmed on 2026-11-06 that the icon installed and launched full-screen on his phone; everything else was checked with the automated screen tests, signed in as the test artist on a phone-sized browser.
+Done-when from the plan: install the app on a phone, log an entry on a sample order in under a minute, and the icon launches full-screen. Arvin confirmed on 2026-11-06 that the icon installed and launched full-screen on his phone and that logging an entry on a sample order was neither slow nor confusing; everything else was checked with the automated screen tests, signed in as the test artist on a phone-sized browser.
 
 ### What exists now
 
@@ -67,6 +67,22 @@ Done-when from the plan: install the app on a phone, log an entry on a sample or
 **Screen tests.** Playwright (`npm run ui-test`, Chromium only, phone-sized), signed in as the test artist from `.env`; `tests/editing.spec.ts` also signs in as the test manager to plant an entry older than 7 days. Seven tests cover My Work, Order, the entry form (design-driven fields, hours required, chips, confirmation, no duplicate, log), editing rules (marker, read-only after 7 days, database refusal, delete), My Week and Materials. Screenshots land in `test-results/screens/`. `npm run test` now runs the privacy test and then the screen tests.
 
 **New packages** (added, nothing existing updated): `react-router-dom`, `vite-plugin-pwa`, `@playwright/test`.
+
+### Tested and passed at close (2026-11-06)
+
+- `npm run privacy-test`: 126 of 126 checks passed, signed in as the real test artist. Artists cannot see pay rates, prices, materials costs, other people's hours, other people's purchases, or closed-order financials, and cannot change entries older than 7 days.
+- `npm run test` (privacy test, then the seven Playwright screen tests): all passed. The screen tests sign in as the test artist on a phone-sized browser and walk My Work, an order, adding and editing an entry, the 7-day rule, My Week and a materials purchase with a receipt.
+- `npx tsc -b` and `npx oxlint`: no errors.
+- Live site: https://ignite-tracker.pages.dev serves the manifest, icons and service worker; the deploy from the last push finished.
+- By hand, on Arvin's phone: installed from the browser, icon on the home screen, opens full-screen, an entry logged on a sample order.
+
+### Install on a phone
+
+Full steps with troubleshooting are in `docs/install-on-phone.md`. In short:
+
+- **iPhone:** open the address in Safari (not Chrome), sign in, tap Share, tap "Add to Home Screen", tap Add. The orange flame icon opens full-screen.
+- **Android:** open the address in Chrome, sign in, tap Install in the banner, or use the ⋮ menu and "Install app". The icon appears on the home screen and in the app drawer.
+- Once installed the app stays signed in and picks up new versions in the background; close and reopen it to see an update.
 
 ### Decisions made during the session
 

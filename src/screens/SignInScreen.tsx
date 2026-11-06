@@ -77,7 +77,7 @@ export default function SignInScreen() {
           </p>
         )}
 
-        <button type="submit" disabled={busy || !email || !password}>
+        <button type="submit" className="btn block big" disabled={busy || !email || !password}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>

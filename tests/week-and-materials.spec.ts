@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { managerClient, shot, signInAsArtist } from './helpers.ts'
+import { managerClient, openTodaysEntry, shot, signInAsArtist } from './helpers.ts'
 
 test('My Week shows this week and last week with own hours and counts', async ({ page }) => {
   await signInAsArtist(page)
@@ -7,12 +7,7 @@ test('My Week shows this week and last week with own hours and counts', async ({
   // Make sure there is something to show: log today on the plain bottle order.
   await page.getByLabel('Find any open order').fill('plain bottle')
   await page.locator('ul.list li a.row').first().click()
-  const edit = page.getByRole('link', { name: "Edit today's entry" })
-  if (await edit.isVisible()) {
-    await edit.click()
-  } else {
-    await page.getByRole('link', { name: "Add today's entry" }).click()
-  }
+  await openTodaysEntry(page)
   await page.getByRole('spinbutton', { name: 'Bottles completed' }).fill('6')
   await page.getByRole('button', { name: '2h', exact: true }).click()
   await page.getByRole('button', { name: /Save/ }).click()

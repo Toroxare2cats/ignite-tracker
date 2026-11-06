@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { shot, signInAsArtist } from './helpers.ts'
+import { openTodaysEntry, shot, signInAsArtist } from './helpers.ts'
 
 async function openOrder(page: Page, search: string) {
   await page.getByLabel('Find any open order').fill(search)
@@ -9,6 +9,7 @@ async function openOrder(page: Page, search: string) {
 
 /** Remove today's entry on an order if one exists, so each run starts clean. */
 async function clearToday(page: Page) {
+  await expect(page.getByRole('link', { name: /today's entry/ })).toBeVisible()
   const edit = page.getByRole('link', { name: "Edit today's entry" })
   if (await edit.isVisible()) {
     await edit.click()

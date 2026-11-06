@@ -43,3 +43,10 @@ export async function managerClient(): Promise<SupabaseClient> {
   if (error) throw new Error(`manager sign-in failed: ${error.message}`)
   return client
 }
+
+/** On an order page, open today's entry form whether it is new or an edit. */
+export async function openTodaysEntry(page: Page): Promise<void> {
+  const link = page.getByRole('link', { name: /today's entry/ })
+  await expect(link).toBeVisible()
+  await link.click()
+}

@@ -381,9 +381,20 @@ async function main(): Promise<void> {
     }
 
     const orderName = `Sample order: ${d.name.replace(/^Sample: /, '')}`
-    const { data: order, error: orderFindError } = await admin.from('orders').select('id').eq('name', orderName).maybeSingle()
+    const { data: order, error: orderFindError } = await admin
+      .from('orders')
+      .select('id, primary_artist_id')
+      .eq('name', orderName)
+      .maybeSingle()
     if (orderFindError) fail(`could not look up order "${orderName}": ${orderFindError.message}`)
     let orderStatus = 'order exists'
+    const primaryArtistId = idOf(d.primaryArtistEmail)
+    if (order && !order.primary_artist_id && primaryArtistId) {
+      // The order was created before its primary artist had an account.
+      const { error } = await admin.from('orders').update({ primary_artist_id: primaryArtistId }).eq('id', order.id as string)
+      if (error) fail(`could not set the primary artist on "${orderName}": ${error.message}`)
+      orderStatus = 'order exists, primary artist set'
+    }
     if (!order) {
       const { error } = await admin.from('orders').insert({
         name: orderName,
@@ -391,7 +402,7 @@ async function main(): Promise<void> {
         bottles_ordered: 12,
         dabbers_ordered: d.hasDabber ? 12 : 0,
         due_date: isoDatePlusDays(30),
-        primary_artist_id: idOf(d.primaryArtistEmail),
+        primary_artist_id: primaryArtistId,
         created_by: ownerId,
       })
       if (error) fail(`could not create order "${orderName}": ${error.message}`)

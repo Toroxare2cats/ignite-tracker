@@ -8,10 +8,11 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "oxlint",
-    "test": "npm run privacy-test",
+    "test": "npm run privacy-test && npm run ui-test",
     "privacy-test": "tsx scripts/privacy-test.ts",
     "seed": "tsx scripts/seed.ts",
-    "db:push": "supabase db push --linked"
+    "db:push": "supabase db push --linked",
+    "ui-test": "playwright test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.58.0",

@@ -13,7 +13,9 @@
  *      cost function, download the manager's receipt, read the manager's
  *      hours / purchase / personal item / calendar rows, read the task it is
  *      not assigned to, and change its own role.  Each must return nothing
- *      or be refused.
+ *      or be refused.  For tasks: reading every task, assignee and
+ *      personal-list row returns only its own; it cannot create, edit,
+ *      assign, reopen, stop or remove a task, or change an approved item.
  *   4. As the manager, performs the same reads and calls.  Each must succeed
  *      with at least one row, so a rule that locks everyone out cannot pass.
  *   5. Confirms public sign-up is switched off, row-level security is switched
@@ -269,6 +271,7 @@ async function main(): Promise<number> {
     uattendName?: string
     ignoredEmail?: string
     managerTaskId?: string
+    extraItemIds?: string[]
     artistTaskId?: string
     managerItemId?: string
     artistItemId?: string
@@ -651,6 +654,152 @@ async function main(): Promise<number> {
     await expectAllowed('manager lists the receipts bucket', () => mgr.storage.from('receipts').list(artist.id))
 
     // -----------------------------------------------------------------------
+    // Tasks and personal lists (session 5): an artist sees only tasks
+    // assigned to them, never another person's personal list, and cannot
+    // create, edit, assign, reopen, stop or remove a task.
+    // -----------------------------------------------------------------------
+    console.log('\n--- Tasks and personal lists ---')
+    {
+      // Fixtures: a weekly task for the manager only, a task shared by both,
+      // and the artist's own item approved into a task for the manager only.
+      const repeat = await must('create weekly manager-only task', () =>
+        mgr.rpc('save_task', {
+          p_task_id: null, p_title: `Privacy test weekly ${runId}`, p_note: null, p_priority: 'normal',
+          p_due_date: today, p_order_id: fx.orderId, p_recurrence: 'weekly', p_assignees: [manager.id],
+        }))
+      const shared = await must('create shared task', () =>
+        mgr.rpc('save_task', {
+          p_task_id: null, p_title: `Privacy test shared ${runId}`, p_note: null, p_priority: 'high',
+          p_due_date: null, p_order_id: null, p_recurrence: null, p_assignees: [artist.id, manager.id],
+        }))
+      let approvedTaskId: string | null = null
+      if (fx.artistItemId) {
+        const approved = await must("approve the artist's item into a manager-only task", () =>
+          mgr.rpc('approve_personal_item', { p_item_id: fx.artistItemId, p_assignees: [manager.id], p_priority: 'low' }))
+        approvedTaskId = approved.id
+      }
+      const mItem2 = await must('create a second manager personal item', () =>
+        mgr.from('personal_items').insert({ text: `Privacy test manager item 2 ${runId}` }).select('id').single())
+      await must('approve the manager item', () => mgr.rpc('approve_personal_item', { p_item_id: mItem2.id, p_assignees: [manager.id] }))
+
+      // Whole-table reads: every row that comes back must be the artist's own.
+      {
+        const { data, error } = await art.from('tasks').select('id')
+        const ids = ((data ?? []) as { id: string }[]).map((r) => r.id)
+        const { data: on } = await mgr.from('task_assignees').select('task_id').eq('profile_id', artist.id)
+        const mine = new Set(((on ?? []) as { task_id: string }[]).map((r) => r.task_id))
+        const strays = ids.filter((id) => !mine.has(id))
+        record('artist reading all tasks gets only tasks assigned to them', !error && strays.length === 0 && ids.includes(shared.id),
+          error ? error.message : strays.length ? `LEAK: ${strays.length} task(s) not assigned to them` : `${ids.length} task(s), all theirs`)
+      }
+      {
+        const { data, error } = await art.from('task_assignees').select('task_id, profile_id')
+        const rows = (data ?? []) as { task_id: string; profile_id: string }[]
+        const { data: on } = await mgr.from('task_assignees').select('task_id').eq('profile_id', artist.id)
+        const mine = new Set(((on ?? []) as { task_id: string }[]).map((r) => r.task_id))
+        const strays = rows.filter((r) => !mine.has(r.task_id))
+        const seesCoAssignee = rows.some((r) => r.task_id === shared.id && r.profile_id === manager.id)
+        record('artist reading all task assignees gets only their own tasks (co-assignees included)', !error && strays.length === 0 && seesCoAssignee,
+          error ? error.message : strays.length ? `LEAK: ${strays.length} row(s) for other tasks` : `${rows.length} row(s)`)
+      }
+      {
+        const { data, error } = await art.from('personal_items').select('id, owner_id')
+        const rows = (data ?? []) as { id: string; owner_id: string }[]
+        const others = rows.filter((r) => r.owner_id !== artist.id)
+        record("artist reading every personal list gets only their own (no other artist's, no manager's)", !error && others.length === 0,
+          error ? error.message : others.length ? `LEAK: ${others.length} item(s) owned by someone else` : `${rows.length} own item(s)`)
+      }
+      {
+        const { data, error } = await art.rpc('personal_item_outcomes')
+        const rows = (data ?? []) as { item_id: string; assignee_names: string[] }[]
+        const foreign = rows.filter((r) => r.item_id === mItem2.id)
+        const own = rows.find((r) => r.item_id === fx.artistItemId)
+        record("artist sees where their own approved item went, and no one else's", !error && foreign.length === 0 && Boolean(own) && own!.assignee_names.includes(manager.name),
+          error ? error.message : foreign.length ? "LEAK: the manager's approved item" : own ? `went to ${own.assignee_names.join(', ')}` : 'own approved item missing')
+      }
+      if (approvedTaskId) {
+        await expectDenied('artist reads the task their item became (assigned to someone else)', () =>
+          art.from('tasks').select('*').eq('id', approvedTaskId!))
+        await expectDenied('artist edits their approved item', () =>
+          art.from('personal_items').update({ text: 'changed after approval' }).eq('id', fx.artistItemId!).select())
+        await expectDenied('artist reopens their approved item', () =>
+          art.from('personal_items').update({ status: 'open' }).eq('id', fx.artistItemId!).select())
+      }
+      await expectDenied("artist edits the manager's personal item", () =>
+        art.from('personal_items').update({ text: 'intruder' }).eq('id', fx.managerItemId!).select())
+      await expectDenied("artist deletes the manager's personal item", () =>
+        art.from('personal_items').delete().eq('id', fx.managerItemId!).select())
+      await expectDenied('artist adds an item to someone else\'s list', () =>
+        art.from('personal_items').insert({ text: 'intruder', owner_id: manager.id }).select())
+
+      await expectDenied('artist calls save_task to create a task', () =>
+        art.rpc('save_task', {
+          p_task_id: null, p_title: 'intruder', p_note: null, p_priority: 'normal', p_due_date: null,
+          p_order_id: null, p_recurrence: null, p_assignees: [artist.id],
+        }))
+      await expectDenied('artist calls save_task to edit a task they are on', () =>
+        art.rpc('save_task', {
+          p_task_id: shared.id, p_title: 'intruder', p_note: null, p_priority: 'low', p_due_date: null,
+          p_order_id: null, p_recurrence: null, p_assignees: [artist.id],
+        }))
+      await expectDenied('artist edits a task they are on directly', () =>
+        art.from('tasks').update({ title: 'intruder', priority: 'low' }).eq('id', shared.id).select())
+      await expectDenied('artist stops a repeat', () =>
+        art.from('tasks').update({ recurrence: null }).eq('id', repeat.id).select())
+      await expectDenied('artist adds themselves to a task they are not on', () =>
+        art.from('task_assignees').insert({ task_id: repeat.id, profile_id: artist.id }).select())
+      await expectDenied('artist removes a co-assignee', () =>
+        art.from('task_assignees').delete().eq('task_id', shared.id).eq('profile_id', manager.id).select())
+      await expectDenied('artist deletes a task they are on', () =>
+        art.from('tasks').delete().eq('id', shared.id).select())
+      await expectDenied('artist reopens a task they completed', () => art.rpc('reopen_task', { p_task_id: fx.artistTaskId }))
+      await expectDenied('artist reopens it directly', () =>
+        art.from('tasks').update({ status: 'open' }).eq('id', fx.artistTaskId!).select())
+      await expectDenied('artist completes the weekly task it is not on', () => art.rpc('complete_task', { p_task_id: repeat.id }))
+
+      // The manager side: every one of these works.
+      await expectAllowed('manager creates a task with save_task', () =>
+        mgr.rpc('save_task', {
+          p_task_id: null, p_title: `Privacy test saved ${runId}`, p_note: null, p_priority: 'normal', p_due_date: null,
+          p_order_id: null, p_recurrence: null, p_assignees: [artist.id],
+        }))
+      await expectAllowed('manager edits a task with save_task', () =>
+        mgr.rpc('save_task', {
+          p_task_id: shared.id, p_title: `Privacy test shared ${runId}`, p_note: 'edited', p_priority: 'low', p_due_date: null,
+          p_order_id: null, p_recurrence: null, p_assignees: [artist.id, manager.id],
+        }))
+      await expectAllowed('manager completes the weekly task (next one made)', () => mgr.rpc('complete_task', { p_task_id: repeat.id }))
+      {
+        const { data } = await mgr.from('tasks').select('id, status').eq('title', `Privacy test weekly ${runId}`)
+        const open = ((data ?? []) as { status: string }[]).filter((r) => r.status === 'open').length
+        record('a weekly task has exactly one open occurrence after completion', open === 1, `${open} open`)
+      }
+      await expectAllowed('manager reopens a done task', () => mgr.rpc('reopen_task', { p_task_id: fx.artistTaskId }))
+      await expectAllowed("manager sees where everyone's approved items went", () => mgr.rpc('personal_item_outcomes'), 2)
+      await expectAllowed("manager reads every person's personal list", () =>
+        mgr.from('personal_items').select('id').in('id', [fx.managerItemId!, fx.artistItemId ?? fx.managerItemId!]), fx.artistItemId ? 2 : 1)
+      await expectAllowed('manager stops a repeat', () =>
+        mgr.from('tasks').update({ recurrence: null }).eq('title', `Privacy test weekly ${runId}`).eq('status', 'open').select())
+      fx.extraItemIds = [mItem2.id]
+    }
+
+    // No number column of any kind on the task and personal-list tables, so no
+    // money can be stored there even under an innocent-looking name.
+    {
+      const { data, error } = await mgr.rpc('table_columns')
+      if (error) {
+        record('task tables column types are readable', false, error.message)
+      } else {
+        const cols = (data ?? []) as { table_name: string; column_name: string; data_type: string }[]
+        const NUMBER_TYPES = /numeric|money|integer|bigint|smallint|real|double|decimal/i
+        for (const table of ['tasks', 'task_assignees', 'personal_items']) {
+          const numbers = cols.filter((c) => c.table_name === table && NUMBER_TYPES.test(c.data_type)).map((c) => `${c.column_name} (${c.data_type})`)
+          record(`no number column at all on ${table}`, cols.some((c) => c.table_name === table) && numbers.length === 0, numbers.length ? `found: ${numbers.join(', ')}` : 'clean')
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------------
     // Structure: RLS on every table, no money columns where artists can read
     // -----------------------------------------------------------------------
     console.log('\n--- Structure ---')
@@ -753,7 +902,8 @@ async function main(): Promise<number> {
     for (const id of [fx.managerTaskId, fx.artistTaskId]) {
       if (id) await tidy('task', () => mgr.from('tasks').delete().eq('id', id))
     }
-    for (const id of [fx.managerItemId, fx.artistItemId]) {
+    await tidy('session 5 tasks', () => mgr.from('tasks').delete().like('title', `%${runId}%`))
+    for (const id of [fx.managerItemId, fx.artistItemId, ...(fx.extraItemIds ?? [])]) {
       if (id) await tidy('personal item', () => mgr.from('personal_items').delete().eq('id', id))
     }
     if (fx.studioTimeId) await tidy('studio_time', () => mgr.from('studio_time').delete().eq('id', fx.studioTimeId!))

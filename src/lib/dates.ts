@@ -100,3 +100,8 @@ export function datesBetween(from: string, to: string): string[] {
   for (let d = from; d <= to; d = addDays(d, 1)) out.push(d)
   return out
 }
+
+/** The Chicago calendar date (YYYY-MM-DD) a timestamp falls on. */
+export function chicagoDateOf(timestamp: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(timestamp))
+}

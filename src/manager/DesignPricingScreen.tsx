@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { formatFullDate, formatMinutes, todayChicago } from '../lib/dates.ts'
+import { chicagoDateOf, formatFullDate, formatMinutes, todayChicago } from '../lib/dates.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import type { Design } from '../lib/types.ts'
 import { BackLink, ErrorNote, Loading } from '../components/ui.tsx'
@@ -194,7 +194,7 @@ function DesignReport({ designId }: { designId: string }) {
                         {r.order_name}
                       </Link>
                     </td>
-                    <td data-label="Closed">{formatFullDate(r.closed_at.slice(0, 10))}</td>
+                    <td data-label="Closed">{formatFullDate(chicagoDateOf(r.closed_at))}</td>
                     <td className="num" data-label="Delivered">
                       {r.bottles_delivered ?? <span className="missing">Missing</span>}
                     </td>

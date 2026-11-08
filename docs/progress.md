@@ -138,26 +138,33 @@ Done-when from the plan: create a real design and order, approve a test purchase
 
 **Account function.** `supabase/functions/manage-account` runs on Supabase's servers. It creates logins and sets new passwords, and only after checking that the caller is an active manager. It is the one approved place the admin (service_role) key is used (rule 9); the key never reaches a browser or phone. Deploy it again after a change with `npx supabase functions deploy manage-account --project-ref <ref> --use-api`.
 
-**Tests.** The privacy test now has 165 checks (39 new), covering purchase decisions, stock allocation, design and photo edits, reassignment, alternate emails, the manager lock-out guards, closing without a price or quantities, hours on a closed order, deactivated accounts, and an artist changing a manager's landing screen. There are 28 screen tests (21 new): the manager screens at desktop size, phone-width checks for every manager screen, and an artist being turned away from each one. Manager tests sign in as the test manager from `.env` and remove the orders, designs and purchases they make. The People test makes a throwaway login and removes it afterwards with the admin key, which it reads through the logged-in Supabase CLI into memory the same way `scripts/seed.ts` does; it is never written down or printed. Selling prices and pay rates can only be added, so the tests reuse the Test Artist and Test Manager rates and a retired design called "Test fixture: design prices"; the price and rate tests add a few rows to those test fixtures each run.
+**Tests.** The privacy test now has 165 checks (39 new), covering purchase decisions, stock allocation, design and photo edits, reassignment, an artist changing their own alternate emails, the manager lock-out guards, closing without a price or quantities, hours on a closed order, deactivated accounts, and an artist changing a manager's landing screen. There are 28 screen tests (21 new): the manager screens at desktop size, phone-width checks for every manager screen, and an artist being turned away from each one. Manager tests sign in as the test manager from `.env` and remove the orders, designs and purchases they make. The People test makes a throwaway login and removes it afterwards with the admin key, which it reads through the logged-in Supabase CLI into memory the same way `scripts/seed.ts` does; it is never written down or printed. Selling prices and pay rates can only be added, so the tests reuse the Test Artist and Test Manager rates and a retired design called "Test fixture: design prices"; the price and rate tests add a few rows to those test fixtures each run.
 
 ### Tested and passed at close (2026-11-07)
 
 - `npx tsc -b` and `npx oxlint`: no errors.
 - `npm run build`: builds. The main file is 527 kB; the manager portal is a separate 72 kB file.
 - `npm run test`: privacy test 165 of 165, signed in as the real test artist, then all 28 screen tests passed (2.3 minutes).
-- Live site: https://ignite-tracker.pages.dev serves this version (commit `24856aa`), checked 2026-11-07 within a minute of the push. The app file Cloudflare built is byte-for-byte the one tested here, and the manager portal file, manifest and service worker all load.
+- Final run before closing the session (2026-11-07, after the run-through below): `npm run test` passed again (privacy test 165 of 165, then 28 of 28 screen tests in 2.2 minutes), and `npm run privacy-test` on its own passed 165 of 165. Both sign in as the test artist and the test manager. One of the checks has the test artist try to add an email to their own alternate emails; the database refuses it ("Only a manager can change a role, active flag, login email, alternate emails or name"). The same database rule refuses removing or replacing one; the test exercises the adding case.
+- Live site: https://ignite-tracker.pages.dev serves this version (commit `24856aa`), checked 2026-11-07 within a minute of the push. The app file Cloudflare built is byte-for-byte the one tested here, and the manager portal file, manifest and service worker all load. Every later push that day changed only this progress file, so the app itself is unchanged since `24856aa`.
 - By hand, on the live site (2026-11-07), signed in as Arvin: created the design "TEST worked example" and a 60-bottle order on it, with Test Artist as primary artist. Claude logged the hours with the two test accounts: 3 hours for Test Artist and 2 hours for Test Manager, dated 2001-01-02, the day those accounts' $22 and $25 rates are in force, so no real person got a pay rate. Test Artist sent a $1.00 studio-stock purchase, which Arvin approved. Arvin marked the order Finished and closed it: labor $116, materials $40, recorded cost $156, price $300, amount remaining $144; per delivered bottle $2.60 cost, $5.00 price, $2.40 remaining, 5 minutes. The database's own figures matched. The first close went in with $0 materials, so Arvin reopened it and closed it again with $40, which also showed Reopen keeping the earlier figures in the managers' history. Afterwards, with Arvin's OK, the test order, its entries and history, the design and the purchase were removed; the test accounts and their rates are unchanged.
 - Not tried yet: the manager screens on a real phone, real receipt photos from an iPhone, and signing in as Amelia to see her landing screen.
 
 ### Decisions made during the session
 
-- Package weight, in pounds and optional, is recorded with the box dimensions when an order is marked Finished. An addition to the brief's packing note and box dimensions (Arvin).
-- Mark Finished stays available at all times, for artists and managers, with no lock until enough bottles are logged (Arvin). Logged bottles count what went into the kiln, not what survived.
-- Weeks run Sunday through Saturday everywhere (Arvin; rule 15).
-- Anything a manager can see on a desktop is also in the installed app on a phone, and the reverse (Arvin; rule 14).
-- The admin key may be used only by the `manage-account` function, on Supabase's servers (Arvin, 2026-11-06; rule 9).
-- New orders require quantity, due date and primary artist. Box dimensions are in inches. The design is fixed once an order exists; make a new order to change it.
-- A closed order cannot be edited, have entries or hours changed, have purchases approved or have stock allocations changed until it is reopened.
+Only what the brief and build plan do not already say.
+
+- **Package weight** (addition to the brief): when an order is marked Finished, an optional package weight in pounds is recorded with the packing note and box dimensions, for the shipping label (Arvin). Stored on `orders` (migration 0013); `finish_order` takes it and `reopen_order` keeps it in the history.
+- Box dimensions are in inches.
+- Weeks run Sunday through Saturday everywhere (Arvin; CLAUDE.md rule 15).
+- Anything a manager can see on a desktop is also in the installed app on a phone, and the reverse: one app, one menu, nothing hidden by device (Arvin; rule 14). The brief only said managers can use it on a phone.
+- The admin key may be used only by the `manage-account` function, on Supabase's servers, to create logins and set passwords (Arvin, 2026-11-06; rule 9).
+- Arvin considered locking Mark Finished until the ordered bottles were logged, and decided against it: it stays as the brief has it, open to any artist or manager at any time. Logged bottles count what went into the kiln, not what survived.
+- An order's design cannot be changed once the order exists; make a new order instead.
+- Changing an order's primary artist is recorded in its history with who and when.
+- The brief says entries on a closed order need a reopen first. The same now holds for the order's details, hours, purchase approvals and stock allocations. Rejecting a purchase is still allowed, since it changes no cost.
+- Only managers can change alternate emails, because the calendar sync (session 8) will use them to decide whose event an invitation is. An artist cannot change their own.
+- A manager cannot deactivate their own account or change their own role, so the studio always has an active manager.
 - A design's selling price and a person's pay rate are added on that design's or person's own page right after it is created, because each is a dated row of its own.
 - Purchase decisions are final. There is no undo for a wrong approval yet; ask for one if it becomes a problem.
 - Landing screen: once per opening of the app and after signing in; Orders until the Dashboard exists. The brief gives Amelia's home as the assignment board in one place and Orders in another; the session 3 instruction said Orders, so her account uses Orders.
@@ -168,7 +175,8 @@ Done-when from the plan: create a real design and order, approve a test purchase
 
 ### Left unfinished or deferred
 
-- The manager screens on a real phone.
+- The manager screens on a real phone, a real receipt photo from an iPhone, and Amelia's landing screen (checked in the database, not by signing in as her).
+- Watch: in the run-through the first close went in with $0 materials and was put right by reopening. If the Close form's hint "Use 0 if approved purchases and stock cover all of it" turns out to invite that slip, reword it.
 - The Dashboard is session 4; managers without a landing choice will open on it automatically.
 - A login email cannot be changed from People. It would need the account function; ask if it is wanted.
 - The test accounts appear in the primary-artist list on the order form.

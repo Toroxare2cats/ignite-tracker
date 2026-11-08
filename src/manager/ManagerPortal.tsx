@@ -11,6 +11,7 @@ import PersonScreen from './PersonScreen.tsx'
 import ApprovalsScreen from './ApprovalsScreen.tsx'
 import SettingsScreen from './SettingsScreen.tsx'
 import ImportsScreen from './ImportsScreen.tsx'
+import ExportsScreen from './ExportsScreen.tsx'
 import TodayScreen from './TodayScreen.tsx'
 import ReportsScreen from './ReportsScreen.tsx'
 import ReconciliationScreen from './ReconciliationScreen.tsx'
@@ -50,6 +51,7 @@ export default function ManagerPortal() {
       <Route path="reports/artist-week/:personId" element={<ArtistWeekScreen />} />
       <Route path="reports/artist-by-design" element={<ArtistByDesignScreen />} />
       <Route path="imports" element={<ImportsScreen />} />
+      <Route path="exports" element={<ExportsScreen />} />
       <Route path="settings" element={<SettingsScreen />} />
       <Route path="*" element={<Navigate to="dashboard" replace />} />
     </Routes>

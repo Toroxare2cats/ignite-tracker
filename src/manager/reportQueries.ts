@@ -34,24 +34,30 @@ export interface ReportEntry extends Counts {
   order: { name: string; design: { name: string } | null } | null
 }
 
-/** Entries with their hours and order names.  Managers see every person's hours. */
-export async function loadEntriesBetween(from: string, to: string, artistId?: string): Promise<ReportEntry[]> {
-  let q = supabase
-    .from('entries')
-    .select(
-      'id, artist_id, order_id, work_date, bottles, dabbers, points, color_tube_preps, blanks, fuming, note, ' +
-        'entry_time(minutes), order:orders(name, design:designs(name))',
-    )
-    .gte('work_date', from)
-    .lte('work_date', to)
-    .order('work_date')
-    .order('created_at')
-  if (artistId) q = q.eq('artist_id', artistId)
-  const rows = check(await q) as unknown as (Omit<ReportEntry, 'minutes'> & { entry_time: { minutes: number } | { minutes: number }[] | null })[]
+const REPORT_ENTRY_COLUMNS =
+  'id, artist_id, order_id, work_date, bottles, dabbers, points, color_tube_preps, blanks, fuming, note, ' +
+  'entry_time(minutes), order:orders(name, design:designs(name))'
+
+type RawReportEntry = Omit<ReportEntry, 'minutes'> & { entry_time: { minutes: number } | { minutes: number }[] | null }
+
+function withMinutes(rows: RawReportEntry[]): ReportEntry[] {
   return rows.map(({ entry_time, ...e }) => {
     const t = Array.isArray(entry_time) ? entry_time[0] : entry_time
     return { ...e, minutes: t?.minutes ?? 0 }
   })
+}
+
+/** Entries with their hours and order names.  Managers see every person's hours. */
+export async function loadEntriesBetween(from: string, to: string, artistId?: string): Promise<ReportEntry[]> {
+  let q = supabase.from('entries').select(REPORT_ENTRY_COLUMNS).gte('work_date', from).lte('work_date', to).order('work_date').order('created_at')
+  if (artistId) q = q.eq('artist_id', artistId)
+  return withMinutes(check(await q) as unknown as RawReportEntry[])
+}
+
+/** One order's entries with hours, oldest first. */
+export async function loadOrderReportEntries(orderId: string): Promise<ReportEntry[]> {
+  const q = supabase.from('entries').select(REPORT_ENTRY_COLUMNS).eq('order_id', orderId).order('work_date').order('created_at')
+  return withMinutes(check(await q) as unknown as RawReportEntry[])
 }
 
 export interface StudioTimeRow {

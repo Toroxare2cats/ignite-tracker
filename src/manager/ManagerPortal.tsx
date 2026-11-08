@@ -14,6 +14,7 @@ import ImportsScreen from './ImportsScreen.tsx'
 import TodayScreen from './TodayScreen.tsx'
 import ReportsScreen from './ReportsScreen.tsx'
 import ReconciliationScreen from './ReconciliationScreen.tsx'
+import OrderCostScreen from './OrderCostScreen.tsx'
 
 /**
  * The manager portal's screens.  This file and everything it imports load only
@@ -38,6 +39,8 @@ export default function ManagerPortal() {
       <Route path="approvals" element={<ApprovalsScreen />} />
       <Route path="reports" element={<ReportsScreen />} />
       <Route path="reports/reconciliation" element={<ReconciliationScreen />} />
+      <Route path="reports/order-cost" element={<OrderCostScreen />} />
+      <Route path="reports/order-cost/:orderId" element={<OrderCostScreen />} />
       <Route path="imports" element={<ImportsScreen />} />
       <Route path="settings" element={<SettingsScreen />} />
       <Route path="*" element={<Navigate to="dashboard" replace />} />

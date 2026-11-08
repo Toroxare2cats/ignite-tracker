@@ -554,3 +554,18 @@ export async function removeStockAllocation(allocationId: string): Promise<void>
   if (error) throw new Error(friendlyDbMessage(error.message))
   if (count === 0) throw new Error('This allocation has already been removed. Refresh the page to see it.')
 }
+
+// --- Order cost by contributor (manager-only, rates by work date) ----------
+
+export interface ContributorCost {
+  artist_id: string
+  entry_count: number
+  minutes: number
+  /** Null when the person had no pay rate on one of their work dates: missing, never zero. */
+  labor_cost: number | null
+  rated: boolean
+}
+
+export async function loadOrderCostByContributor(orderId: string): Promise<ContributorCost[]> {
+  return check(await supabase.rpc('order_cost_by_contributor', { p_order_id: orderId })) as ContributorCost[]
+}

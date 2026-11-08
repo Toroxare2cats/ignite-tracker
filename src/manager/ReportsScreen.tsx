@@ -2,6 +2,11 @@ import { Link } from 'react-router-dom'
 
 const REPORTS = [
   {
+    to: '/manage/reports/order-cost',
+    name: 'Order cost',
+    what: 'One order: its entries, hours by contributor, labor cost, materials, selling price and amount remaining. Missing inputs are shown as missing.',
+  },
+  {
     to: '/manage/reports/reconciliation',
     name: 'Reconciliation',
     what: 'All artists for a week: clocked (uAttend), hours on orders, calendar, studio time and the unexplained gap per day. Clocked days with no entry are flagged.',

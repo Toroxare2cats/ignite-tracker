@@ -81,7 +81,7 @@ const MANAGER_ONLY_TABLES = [
 ] as const
 
 /** Functions only a manager may call. */
-const MANAGER_ONLY_FUNCTIONS = ['order_cost', 'design_pricing', 'artist_design_hours'] as const
+const MANAGER_ONLY_FUNCTIONS = ['order_cost', 'order_cost_by_contributor', 'design_pricing', 'artist_design_hours'] as const
 
 /** Every table that must exist with row-level security switched on. */
 const ALL_TABLES = [
@@ -428,6 +428,7 @@ async function main(): Promise<number> {
     console.log('\n--- Artist: cost functions ---')
     const costArgs: Record<(typeof MANAGER_ONLY_FUNCTIONS)[number], Record<string, unknown>> = {
       order_cost: { p_order_id: fx.orderId },
+      order_cost_by_contributor: { p_order_id: fx.orderId },
       design_pricing: { p_design_id: fx.designId },
       artist_design_hours: { p_artist_id: manager.id, p_design_id: fx.designId },
     }
@@ -605,6 +606,7 @@ async function main(): Promise<number> {
     // -----------------------------------------------------------------------
     console.log('\n--- Manager: cost functions and closing ---')
     await expectAllowed('manager calls order_cost', () => mgr.rpc('order_cost', { p_order_id: fx.orderId }))
+    await expectAllowed('manager calls order_cost_by_contributor', () => mgr.rpc('order_cost_by_contributor', { p_order_id: fx.orderId }))
     await expectDenied('manager cannot close without materials cost', () =>
       mgr.rpc('close_order', { p_order_id: fx.orderId, p_bottles_delivered: 60, p_dabbers_delivered: 60, p_selling_price: 300, p_materials_total: null }))
     await expectDenied('manager cannot close without a selling price', () =>

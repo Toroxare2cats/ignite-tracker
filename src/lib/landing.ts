@@ -1,10 +1,9 @@
 /**
- * The screens a manager can choose to open the app on.  The Dashboard joins
- * this list when it is built; until then anyone whose saved choice is
- * 'dashboard' (the account default) opens on Orders, and picks up the
- * Dashboard automatically once it exists.
+ * The screens a manager can choose to open the app on.  'dashboard' is the
+ * account default, so a manager who has never chosen opens on Today.
  */
 export const LANDING_SCREENS = [
+  { value: 'dashboard', label: 'Today (dashboard)', path: '/manage/dashboard' },
   { value: 'orders', label: 'Orders', path: '/manage/orders' },
   { value: 'designs', label: 'Designs', path: '/manage/designs' },
   { value: 'people', label: 'People', path: '/manage/people' },

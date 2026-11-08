@@ -8,7 +8,7 @@ import { managerClient, need, shot, signInAsArtist, signInAsManager, testPeople 
 const { isMobile: _m, hasTouch: _t, ...desktop } = devices['Desktop Chrome']
 test.use({ ...desktop, viewport: { width: 1280, height: 900 } })
 
-// The test manager goes back to the account default, which is what opens on Orders.
+// The test manager goes back to the account default, which opens on Today.
 test.afterEach(async () => {
   const mgr = await managerClient()
   const { managerId } = await testPeople(mgr)
@@ -22,14 +22,14 @@ const heading = (page: Page, name: string | RegExp) => page.getByRole('heading',
 test('a manager chooses the screen the app opens on', async ({ page }) => {
   await signInAsManager(page)
 
-  // With nothing chosen yet, a manager opens on Orders.
-  await expect(page).toHaveURL(/\/manage\/orders$/)
-  await expect(heading(page, 'Orders')).toBeVisible()
+  // With nothing chosen yet, a manager opens on Today.
+  await expect(page).toHaveURL(/\/manage\/dashboard$/)
+  await expect(heading(page, 'Today')).toBeVisible()
 
   await menu(page).getByRole('link', { name: 'Settings' }).click()
   await expect(heading(page, 'Settings')).toBeVisible()
   const choice = page.getByLabel('Open the app on')
-  await expect(choice).toHaveValue('orders')
+  await expect(choice).toHaveValue('dashboard')
   await expect(page.getByRole('status')).toHaveText('No changes yet')
   await expect(page.getByRole('button', { name: 'Save changes' })).toBeDisabled()
 

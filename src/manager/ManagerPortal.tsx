@@ -11,6 +11,7 @@ import PersonScreen from './PersonScreen.tsx'
 import ApprovalsScreen from './ApprovalsScreen.tsx'
 import SettingsScreen from './SettingsScreen.tsx'
 import ImportsScreen from './ImportsScreen.tsx'
+import TodayScreen from './TodayScreen.tsx'
 import ReportsScreen from './ReportsScreen.tsx'
 import ReconciliationScreen from './ReconciliationScreen.tsx'
 
@@ -22,7 +23,8 @@ import ReconciliationScreen from './ReconciliationScreen.tsx'
 export default function ManagerPortal() {
   return (
     <Routes>
-      <Route index element={<Navigate to="orders" replace />} />
+      <Route index element={<Navigate to="dashboard" replace />} />
+      <Route path="dashboard" element={<TodayScreen />} />
       <Route path="orders" element={<OrdersScreen />} />
       <Route path="orders/new" element={<OrderFormScreen />} />
       <Route path="orders/:orderId" element={<ManageOrderScreen />} />
@@ -38,7 +40,7 @@ export default function ManagerPortal() {
       <Route path="reports/reconciliation" element={<ReconciliationScreen />} />
       <Route path="imports" element={<ImportsScreen />} />
       <Route path="settings" element={<SettingsScreen />} />
-      <Route path="*" element={<Navigate to="orders" replace />} />
+      <Route path="*" element={<Navigate to="dashboard" replace />} />
     </Routes>
   )
 }

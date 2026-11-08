@@ -85,6 +85,9 @@ function ManagerFrame() {
       <nav className="sidebar" aria-label="Main">
         <div className="sidebar-brand">Ignite Tracker</div>
         <p className="sidebar-heading">Manage</p>
+        <NavLink to="/manage/dashboard" className={linkClass}>
+          Today
+        </NavLink>
         <NavLink to="/manage/orders" className={linkClass}>
           Orders
         </NavLink>

@@ -8,18 +8,21 @@ import { loadAccounts, type Account } from './queries.ts'
 import { Clocked, DayDetail, DayFlags, Gap, Minutes } from './ReconciliationScreen.tsx'
 import { buildPersonWeek, loadCalendarItems, loadClocked, loadEntriesBetween, loadImportsCovering, loadStudioTime, type ImportCover, type PersonWeek } from './reportQueries.ts'
 import { WeekPicker } from './WeekPicker.tsx'
+import { loadTasksCompletedBy, type Task } from '../lib/tasks.ts'
+import { CompletedTasks } from '../components/CompletedTasks.tsx'
 
 interface Data {
   accounts: Account[]
   week: PersonWeek | null
   imports: ImportCover[]
+  tasksDone: Map<string, Task[]>
 }
 
 /**
  * Artist week: one person, one Sunday-to-Saturday week: each day's orders,
  * counts, logged hours, clocked hours (uAttend) and the unexplained gap, with
- * blank days flagged (brief: Reports and views).  Calendar events, studio time
- * and completed tasks join in sessions 8, later and 5; their places are here.
+ * blank days flagged, and the tasks they marked done each day (brief: Reports
+ * and views).  Calendar events and studio time fill in with sessions 8 and later.
  * Each activity count is totalled on its own, never added together (rule 3).
  */
 export default function ArtistWeekScreen() {
@@ -30,15 +33,16 @@ export default function ArtistWeekScreen() {
   const { state, reload } = useAsync<Data>(async () => {
     const accounts = await loadAccounts()
     const person = personId ? (accounts.find((a) => a.id === personId) ?? null) : null
-    if (!person) return { accounts, week: null, imports: [] }
-    const [clocked, entries, studio, calendar, imports] = await Promise.all([
+    if (!person) return { accounts, week: null, imports: [], tasksDone: new Map() }
+    const [clocked, entries, studio, calendar, imports, tasksDone] = await Promise.all([
       loadClocked(week.from, week.to, person.id),
       loadEntriesBetween(week.from, week.to, person.id),
       loadStudioTime(week.from, week.to, person.id),
       loadCalendarItems(week.from, week.to, person.id),
       loadImportsCovering(week.from, week.to),
+      loadTasksCompletedBy(person.id, week.from, week.to),
     ])
-    return { accounts, week: buildPersonWeek(person, week.dates, { clocked, entries, studio, calendar }), imports }
+    return { accounts, week: buildPersonWeek(person, week.dates, { clocked, entries, studio, calendar }), imports, tasksDone }
   }, [personId, week.from])
 
   const go = (id: string) => navigate(`/manage/reports/artist-week/${id}${week.isCurrent ? '' : `?week=${week.from}`}`)
@@ -65,7 +69,7 @@ export default function ArtistWeekScreen() {
           </div>
           {personId && !state.data.week && <ErrorNote message="This person does not exist." />}
           {!personId && <p className="muted">Choose a person to see their week.</p>}
-          {state.data.week && <WeekView week={state.data.week} imports={state.data.imports} from={week.from} to={week.to} />}
+          {state.data.week && <WeekView week={state.data.week} imports={state.data.imports} tasksDone={state.data.tasksDone} from={week.from} to={week.to} />}
         </>
       )}
     </>
@@ -105,7 +109,20 @@ function PersonOptions({ accounts }: { accounts: Account[] }) {
   )
 }
 
-function WeekView({ week, imports, from, to }: { week: PersonWeek; imports: ImportCover[]; from: string; to: string }) {
+function WeekView({
+  week,
+  imports,
+  tasksDone,
+  from,
+  to,
+}: {
+  week: PersonWeek
+  imports: ImportCover[]
+  tasksDone: Map<string, Task[]>
+  from: string
+  to: string
+}) {
+  const tasksTotal = [...tasksDone.values()].reduce((n, list) => n + list.length, 0)
   const today = todayChicago()
   const entries = week.days.flatMap((d) => d.entries)
   const totals = {} as Counts
@@ -178,14 +195,14 @@ function WeekView({ week, imports, from, to }: { week: PersonWeek; imports: Impo
           )}
           <p className="form-note" style={{ marginBottom: 0 }}>
             {daysLogged} {daysLogged === 1 ? 'day' : 'days'} logged on {orders.size} {orders.size === 1 ? 'order' : 'orders'}. Each count is its own activity; they are never
-            added together. Completed tasks join this card in session 5.
+            added together. {tasksTotal} {tasksTotal === 1 ? 'task' : 'tasks'} marked done.
           </p>
         </div>
       </div>
 
       <h2>Day by day</h2>
       {week.days
-        .filter((d) => d.date <= today || d.imported || d.entries.length > 0)
+        .filter((d) => d.date <= today || d.imported || d.entries.length > 0 || tasksDone.has(d.date))
         .map((d) => (
           <section key={d.date} className={`card day-card${d.noEntry ? ' flagged' : d.overExplained ? ' over-row' : ''}`} aria-label={formatDate(d.date)}>
             <div className="day-head">
@@ -203,13 +220,14 @@ function WeekView({ week, imports, from, to }: { week: PersonWeek; imports: Impo
                 <DayFlags day={d} />
               </span>
             </div>
-            {d.entries.length + d.studioRows.length + d.calendarItems.length === 0 ? (
+            {d.entries.length + d.studioRows.length + d.calendarItems.length === 0 && !tasksDone.has(d.date) ? (
               <p className="muted small" style={{ margin: '4px 0 0' }}>
                 {d.clocked !== null && d.clocked > 0 ? 'Clocked in, nothing logged.' : 'Nothing logged.'}
               </p>
             ) : (
               <DayDetail day={d} />
             )}
+            <CompletedTasks tasks={tasksDone.get(d.date)} />
           </section>
         ))}
       <p className="form-note">

@@ -10,6 +10,7 @@ import { useFormState } from '../lib/useFormState.ts'
 import FinishOrderForm from '../components/FinishOrderForm.tsx'
 import { blankToNull, formatMoney, parseCount, parseMoney } from './format.ts'
 import { CostCard, Money } from './CostCard.tsx'
+import OrderTasks from '../components/OrderTasks.tsx'
 import {
   closeOrder,
   loadFinancialHistory,
@@ -197,6 +198,7 @@ export default function ManageOrderScreen() {
         </div>
 
         <div>
+          <OrderTasks orderId={order.id} people={people} heading="h3" />
           <WorkLog entries={data.entries} name={name} closed={order.status === 'closed'} />
           <History events={data.events} financialHistory={data.financialHistory} name={name} />
         </div>

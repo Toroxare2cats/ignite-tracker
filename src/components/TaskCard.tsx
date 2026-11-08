@@ -29,6 +29,7 @@ export function TaskCard({
   onDone,
   doneBusy = false,
   allAssignees = false,
+  hideOrder = false,
   children,
 }: {
   task: Task
@@ -38,6 +39,8 @@ export function TaskCard({
   doneBusy?: boolean
   /** List everyone by name (the managers' Everyone view), even when the viewer is on it. */
   allAssignees?: boolean
+  /** On the order's own page the order line would only repeat itself. */
+  hideOrder?: boolean
   children?: ReactNode
 }) {
   const mine = !allAssignees && task.assignees.includes(viewerId)
@@ -58,7 +61,7 @@ export function TaskCard({
           {task.status === 'open' && <TaskDue task={task} />}
           {task.recurrence && <span className="muted">↻ {RECURRENCE_LABEL[task.recurrence]}</span>}
         </div>
-        {task.order && (
+        {task.order && !hideOrder && (
           <div className="task-sub">
             Order: <Link to={`/orders/${task.order.id}`}>{task.order.name}</Link>
           </div>

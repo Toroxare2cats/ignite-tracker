@@ -12,7 +12,7 @@ import { managerClient, shot, signInAsArtist, signInAsManager, testPeople } from
 const { isMobile: _m, hasTouch: _t, ...desktop } = devices['Desktop Chrome']
 test.use({ ...desktop, viewport: { width: 1280, height: 900 } })
 
-test('a manager downloads the orders, entries, designs and purchases CSV files', async ({ page }) => {
+test('a manager downloads the orders, entries, designs, tasks and purchases CSV files', async ({ page }) => {
   const mgr = await managerClient()
   const { artistId, managerId } = await testPeople(mgr)
   const run = randomUUID().slice(0, 8)
@@ -26,6 +26,7 @@ test('a manager downloads the orders, entries, designs and purchases CSV files',
     .single()
   const orderId = (order as { id: string }).id
   let purchaseId = ''
+  let taskId = ''
 
   try {
     const { data: entry } = await mgr
@@ -81,11 +82,21 @@ test('a manager downloads the orders, entries, designs and purchases CSV files',
     const purchaseLine = purchases.split('\r\n').find((l) => l.includes(`Export test purchase ${run}`))!
     expect(purchaseLine).toContain(`"Export test order ${run}"`)
     expect(purchaseLine).toContain('"12.5","pending"')
+    const { data: task, error: tErr } = await mgr.rpc('save_task', {
+      p_task_id: null, p_title: 'Export test task ' + run, p_note: null, p_priority: 'high', p_due_date: '2001-02-01',
+      p_order_id: orderId, p_recurrence: 'weekly', p_assignees: [managerId, artistId],
+    })
+    if (tErr) throw new Error(tErr.message)
+    taskId = (task as { id: string }).id
+    const tasks = await download('Tasks')
+    const taskLine = tasks.split('\r\n').find((l) => l.includes(`Export test task ${run}`))!
+    expect(taskLine).toContain('"Test Artist; Test Manager","high","2001-02-01","Export test order ' + run + '","weekly","open"')
     await shot(page, '40-exports')
   } finally {
     const { data: o } = await mgr.from('orders').select('status').eq('id', orderId).maybeSingle()
     if (o?.status === 'closed') await mgr.rpc('reopen_order', { p_order_id: orderId, p_reason: 'test cleanup' })
     if (purchaseId) await mgr.from('purchases').delete().eq('id', purchaseId)
+    if (taskId) await mgr.from('tasks').delete().eq('id', taskId)
     await mgr.from('entries').delete().eq('order_id', orderId)
     await mgr.from('order_financial_history').delete().eq('order_id', orderId)
     await mgr.from('order_financials').delete().eq('order_id', orderId)

@@ -5,7 +5,7 @@ import { EXPORTS } from './exports.ts'
 type Status = { kind: 'idle' } | { kind: 'working' } | { kind: 'done'; fileName: string; rows: number } | { kind: 'error'; message: string }
 
 /**
- * Exports: CSV files of orders, entries, designs and purchases, managers only
+ * Exports: CSV files of orders, entries, designs, purchases and tasks, managers only
  * (brief: Operations).  Built in the browser from what the signed-in manager
  * can read, then downloaded.  A monthly export kept by a manager is part of the
  * backup arrangement.
@@ -58,7 +58,6 @@ export default function ExportsScreen() {
           )
         })}
       </ul>
-      <p className="form-note">Tasks are exported too once the Tasks tab exists (session 5).</p>
     </>
   )
 }

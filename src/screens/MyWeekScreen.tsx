@@ -7,17 +7,20 @@ import { loadOwnEntries } from '../lib/queries.ts'
 import { supabase } from '../lib/supabase.ts'
 import { COUNT_FIELDS, describeCounts, type Counts, type EntryWithTime } from '../lib/types.ts'
 import { ErrorNote, Loading } from '../components/ui.tsx'
+import { CompletedTasks } from '../components/CompletedTasks.tsx'
+import { loadTasksCompletedBy, type Task } from '../lib/tasks.ts'
 
 interface Data {
   entries: EntryWithTime[]
   orderNames: Map<string, string>
+  tasksDone: Map<string, Task[]>
 }
 
 /**
  * My Week: the person's own days, orders, counts and hours for this week and
  * last week (Sunday through Saturday).  Each activity is totalled on its own; they
- * are never added together (rule 3).  Calendar events and completed tasks
- * join this screen in later sessions.
+ * are never added together (rule 3).  Tasks the person marked done show under
+ * each day.  Calendar events join this screen in session 8.
  */
 export default function MyWeekScreen() {
   const profile = useProfile()
@@ -30,7 +33,10 @@ export default function MyWeekScreen() {
   const to = addDays(from, 6)
 
   const { state, reload } = useAsync<Data>(async () => {
-    const entries = await loadOwnEntries(profile.id, lastSunday, addDays(thisSunday, 6))
+    const [entries, tasksDone] = await Promise.all([
+      loadOwnEntries(profile.id, lastSunday, addDays(thisSunday, 6)),
+      loadTasksCompletedBy(profile.id, lastSunday, addDays(thisSunday, 6)),
+    ])
     const ids = [...new Set(entries.map((e) => e.order_id))]
     const orderNames = new Map<string, string>()
     if (ids.length) {
@@ -38,7 +44,7 @@ export default function MyWeekScreen() {
       if (error) throw new Error(error.message)
       for (const o of data as { id: string; name: string }[]) orderNames.set(o.id, o.name)
     }
-    return { entries, orderNames }
+    return { entries, orderNames, tasksDone }
   }, [profile.id, thisSunday])
 
   return (
@@ -58,12 +64,23 @@ export default function MyWeekScreen() {
 
       {state.kind === 'loading' && <Loading what="your week" />}
       {state.kind === 'error' && <ErrorNote message={state.message} onRetry={reload} />}
-      {state.kind === 'ready' && <Week entries={state.data.entries.filter((e) => e.work_date >= from && e.work_date <= to)} orderNames={state.data.orderNames} from={from} />}
+      {state.kind === 'ready' && <Week entries={state.data.entries.filter((e) => e.work_date >= from && e.work_date <= to)} orderNames={state.data.orderNames} tasksDone={state.data.tasksDone} from={from} />}
     </>
   )
 }
 
-function Week({ entries, orderNames, from }: { entries: EntryWithTime[]; orderNames: Map<string, string>; from: string }) {
+function Week({
+  entries,
+  orderNames,
+  tasksDone,
+  from,
+}: {
+  entries: EntryWithTime[]
+  orderNames: Map<string, string>
+  tasksDone: Map<string, Task[]>
+  from: string
+}) {
+  const tasksThisWeek = Array.from({ length: 7 }, (_, i) => tasksDone.get(addDays(from, i))?.length ?? 0).reduce((a, b) => a + b, 0)
   const totalMinutes = entries.reduce((sum, e) => sum + (e.minutes ?? 0), 0)
   const totals = {} as Counts
   for (const f of COUNT_FIELDS) totals[f.key] = entries.reduce((sum, e) => sum + (e[f.key] ?? 0), 0) || null
@@ -71,7 +88,7 @@ function Week({ entries, orderNames, from }: { entries: EntryWithTime[]; orderNa
   const days = new Set(entries.map((e) => e.work_date))
 
   // Every day of the week, Sunday first, so blank days are visible too.
-  const dates = Array.from({ length: 7 }, (_, i) => addDays(from, i)).filter((d) => d <= todayChicago() || days.has(d))
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(from, i)).filter((d) => d <= todayChicago() || days.has(d) || tasksDone.has(d))
 
   return (
     <>
@@ -87,6 +104,11 @@ function Week({ entries, orderNames, from }: { entries: EntryWithTime[]; orderNa
             </span>
           ))}
         </div>
+        {tasksThisWeek > 0 && (
+          <p className="muted small" style={{ margin: '8px 0 0' }}>
+            {tasksThisWeek} {tasksThisWeek === 1 ? 'task' : 'tasks'} marked done
+          </p>
+        )}
       </div>
 
       {dates.map((date) => {
@@ -98,6 +120,7 @@ function Week({ entries, orderNames, from }: { entries: EntryWithTime[]; orderNa
               <strong>{formatRelativeDate(date)}</strong>
               <span className="hours">{dayEntries.length ? formatMinutes(dayMinutes) : 'Nothing logged'}</span>
             </div>
+            <CompletedTasks tasks={tasksDone.get(date)} />
             {dayEntries.length > 0 && (
               <ul className="list">
                 {dayEntries.map((e) => {

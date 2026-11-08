@@ -14,6 +14,7 @@ import {
 import { boxText, COUNT_FIELDS, describeCounts, type Counts, type DesignPhoto, type EntryWithTime, type OrderWithDesign, type Person } from '../lib/types.ts'
 import { BackLink, DueDate, ErrorNote, Loading, StatusBadge } from '../components/ui.tsx'
 import FinishOrderForm from '../components/FinishOrderForm.tsx'
+import OrderTasks from '../components/OrderTasks.tsx'
 
 interface Data {
   order: OrderWithDesign | null
@@ -218,6 +219,8 @@ export default function OrderScreen() {
           )}
         </div>
       </details>
+
+      <OrderTasks orderId={order.id} people={people} />
 
       <h2>Work log</h2>
       <LoggedSoFar entries={entries} />

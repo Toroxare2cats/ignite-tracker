@@ -6,8 +6,8 @@ import { managerClient, shot, signInAsManager, testPeople } from './helpers.ts'
  * Today (brief: Reports and views, "Today").  The test manager logs an entry on
  * a throwaway order today; the Test Artist logs nothing.  Today must show the
  * manager as logged with the hours, the artist as not logged, the order in the
- * open-orders table with who logged on it, and the placeholders for tasks and
- * the calendar connection.
+ * open-orders table with who logged on it, the due-today and overdue task strip,
+ * and the placeholder for the calendar connection.
  */
 const { isMobile: _m, hasTouch: _t, ...desktop } = devices['Desktop Chrome']
 test.use({ ...desktop, viewport: { width: 1280, height: 900 } })
@@ -61,7 +61,7 @@ test('Today shows who has logged, who has not, and the open orders by due date',
     await expect(row).toContainText('Test Manager')
     await expect(page.getByText(/open orders? (is|are) past/)).toBeVisible()
 
-    await expect(page.getByText('Coming in session 5')).toBeVisible()
+    await expect(page.getByTestId('task-strip')).toBeVisible()
     await expect(page.getByText(/Not connected yet/)).toBeVisible()
     await shot(page, '34-today')
   } finally {

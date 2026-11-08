@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAsync } from '../lib/useAsync.ts'
 import { loadOpenOrders, loadPeople } from '../lib/queries.ts'
 import { formatShortDate, formatStamp } from '../lib/dates.ts'
@@ -82,7 +82,10 @@ export default function TaskFormScreen({ mode }: { mode: 'new' | 'edit' | 'appro
 
 function TaskForm({ mode, data }: { mode: 'new' | 'edit' | 'approve'; data: Data }) {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const { task, item, people, orders } = data
+  // "+ Task for this order" on an order page arrives with ?order=<id>.
+  const presetOrder = mode === 'new' ? (orders.find((o) => o.id === params.get('order'))?.id ?? '') : ''
   const savedId = useRef('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -92,7 +95,7 @@ function TaskForm({ mode, data }: { mode: 'new' | 'edit' | 'approve'; data: Data
     note: task?.note ?? '',
     priority: (task?.priority ?? 'normal') as TaskPriority,
     dueDate: task?.due_date ?? '',
-    orderId: task?.order_id ?? '',
+    orderId: task?.order_id ?? presetOrder,
     recurrence: (task?.recurrence ?? '') as TaskRecurrence | '',
     assignees: task?.assignees ?? [],
   })

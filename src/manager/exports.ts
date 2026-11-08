@@ -1,5 +1,5 @@
 /**
- * The manager CSV exports: orders, entries, designs and purchases (brief:
+ * The manager CSV exports: orders, entries, designs, purchases and tasks (brief:
  * Operations, "Export").  Each builds its file from what the signed-in account
  * can read; row-level security means an artist login would get no financial
  * columns filled in even if it reached this code, and the screen itself is in
@@ -124,9 +124,42 @@ export async function exportPurchases(): Promise<ExportFile> {
   return { fileName: `ignite-purchases-${todayChicago()}.csv`, text: toCsv(header, body), rowCount: body.length }
 }
 
+export async function exportTasks(): Promise<ExportFile> {
+  const [rows, items, people] = await Promise.all([
+    check(
+      await supabase
+        .from('tasks')
+        .select(
+          'id, title, note, priority, due_date, recurrence, status, created_by, created_at, completed_by, completed_at, edited_by, edited_at, ' +
+            'series_id, previous_task_id, personal_item_id, order:orders(name), task_assignees(profile_id)',
+        )
+        .order('created_at'),
+    ) as unknown as {
+      id: string; title: string; note: string | null; priority: string; due_date: string | null; recurrence: string | null; status: string
+      created_by: string | null; created_at: string; completed_by: string | null; completed_at: string | null; edited_by: string | null; edited_at: string | null
+      series_id: string; previous_task_id: string | null; personal_item_id: string | null
+      order: { name: string } | null; task_assignees: { profile_id: string }[]
+    }[],
+    check(await supabase.from('personal_items').select('id, owner_id')) as { id: string; owner_id: string }[],
+    loadPeople(),
+  ])
+  const owners = new Map(items.map((i) => [i.id, i.owner_id]))
+  const header = [
+    'Title', 'Note', 'Assigned to', 'Priority', 'Due date', 'Order', 'Repeats', 'Status', 'Completed by', 'Completed at',
+    'Created by', 'Created', 'Edited by', 'Edited at', 'From personal list of', 'Task id', 'Series id', 'Follows task id',
+  ]
+  const body: Cell[][] = rows.map((t) => [
+    t.title, t.note, t.task_assignees.map((a) => who(people, a.profile_id)).sort().join('; '), t.priority, t.due_date, t.order?.name ?? '',
+    t.recurrence ?? '', t.status, who(people, t.completed_by), t.completed_at, who(people, t.created_by), t.created_at,
+    who(people, t.edited_by), t.edited_at, t.personal_item_id ? who(people, owners.get(t.personal_item_id)) : '', t.id, t.series_id, t.previous_task_id,
+  ])
+  return { fileName: `ignite-tasks-${todayChicago()}.csv`, text: toCsv(header, body), rowCount: body.length }
+}
+
 export const EXPORTS = [
   { key: 'orders', name: 'Orders', what: 'Every order with its design, quantities, dates, who finished and closed it, and for closed orders the delivered quantities, price, materials, labor, recorded cost and amount remaining.', run: exportOrders },
   { key: 'entries', name: 'Entries', what: 'Every daily entry: date, artist, order, design, each count on its own, minutes, note, and who edited it.', run: exportEntries },
   { key: 'designs', name: 'Designs', what: 'Every design with its specifications, whether it has a dabber or is fumed, and its current price per bottle.', run: exportDesigns },
+  { key: 'tasks', name: 'Tasks', what: 'Every assigned task: title, note, who it is assigned to, priority, due date, order, repeat, and who completed it and when.', run: exportTasks },
   { key: 'purchases', name: 'Purchases', what: 'Every materials purchase submission with amount, order or stock, status, and the decision.', run: exportPurchases },
 ] as const

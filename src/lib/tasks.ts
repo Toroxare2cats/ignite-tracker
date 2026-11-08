@@ -6,7 +6,7 @@
  */
 import { supabase } from './supabase.ts'
 import { check, friendlyDbMessage } from './queries.ts'
-import { addDays, todayChicago } from './dates.ts'
+import { addDays, chicagoDateOf, todayChicago } from './dates.ts'
 
 export type TaskPriority = 'high' | 'normal' | 'low'
 export type TaskRecurrence = 'daily' | 'weekly' | 'biweekly' | 'monthly'
@@ -119,20 +119,6 @@ export async function loadRecentlyDone(days = 7): Promise<Task[]> {
 /** Open tasks linked to one order. */
 export async function loadOrderTasks(orderId: string): Promise<Task[]> {
   const rows = check(await supabase.from('tasks').select(TASK_COLUMNS).eq('status', 'open').eq('order_id', orderId))
-  return shape(rows as unknown as TaskRow[])
-}
-
-/** Tasks completed between two timestamps (inclusive start, exclusive end). */
-export async function loadTasksCompletedBetween(fromIso: string, toIso: string): Promise<Task[]> {
-  const rows = check(
-    await supabase
-      .from('tasks')
-      .select(TASK_COLUMNS)
-      .eq('status', 'done')
-      .gte('completed_at', fromIso)
-      .lt('completed_at', toIso)
-      .order('completed_at', { ascending: true }),
-  )
   return shape(rows as unknown as TaskRow[])
 }
 
@@ -291,4 +277,29 @@ export async function approvePersonalItem(
   if (error) throw new Error(taskMessage(error.message))
   changed()
   return (data as { id: string }).id
+}
+
+/**
+ * Tasks a person marked done between two dates (inclusive, Chicago calendar
+ * days), keyed by the day they did it.  Used by My Week and Artist week.
+ */
+export async function loadTasksCompletedBy(personId: string, from: string, to: string): Promise<Map<string, Task[]>> {
+  // Ask a day either side in UTC terms, then keep exactly the Chicago days wanted.
+  const rows = check(
+    await supabase
+      .from('tasks')
+      .select(TASK_COLUMNS)
+      .eq('status', 'done')
+      .eq('completed_by', personId)
+      .gte('completed_at', `${addDays(from, -1)}T00:00:00Z`)
+      .lt('completed_at', `${addDays(to, 2)}T00:00:00Z`)
+      .order('completed_at', { ascending: true }),
+  )
+  const byDay = new Map<string, Task[]>()
+  for (const task of shape(rows as unknown as TaskRow[])) {
+    const day = chicagoDateOf(task.completed_at!)
+    if (day < from || day > to) continue
+    byDay.set(day, [...(byDay.get(day) ?? []), task])
+  }
+  return byDay
 }

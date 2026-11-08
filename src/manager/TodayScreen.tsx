@@ -6,6 +6,8 @@ import type { OrderWithDesign } from '../lib/types.ts'
 import { DueDate, ErrorNote, Loading, StatusBadge } from '../components/ui.tsx'
 import { loadAccounts, type Account } from './queries.ts'
 import { loadCalendarStatus, type CalendarStatus } from './dashboardQueries.ts'
+import { isOverdue, loadOpenTasks, nameList, personName, sortTasks, type Task } from '../lib/tasks.ts'
+import { TaskDue, PriorityBadge } from '../components/TaskCard.tsx'
 import { loadClocked, loadEntriesBetween, loadStudioTime, type ClockedDay, type ReportEntry, type StudioTimeRow } from './reportQueries.ts'
 
 interface Data {
@@ -17,17 +19,18 @@ interface Data {
   orders: OrderWithDesign[]
   pending: number | null
   calendar: CalendarStatus | null
+  tasks: Task[]
 }
 
 /**
  * Today, the manager dashboard: who has logged today and who has not, open
- * orders by due date, pending approvals, and the places where tasks due today
- * (session 5) and the calendar sync status (session 8) will go.
+ * orders by due date, pending approvals, tasks due today and overdue, and the
+ * place where the calendar sync status (session 8) will go.
  */
 export default function TodayScreen() {
   const { state, reload } = useAsync<Data>(async () => {
     const today = todayChicago()
-    const [accounts, entries, clocked, studio, orders, pending, calendar] = await Promise.all([
+    const [accounts, entries, clocked, studio, orders, pending, calendar, tasks] = await Promise.all([
       loadAccounts(),
       loadEntriesBetween(today, today),
       loadClocked(today, today),
@@ -35,8 +38,9 @@ export default function TodayScreen() {
       loadOpenOrders(),
       countPendingPurchases(),
       loadCalendarStatus(),
+      loadOpenTasks(),
     ])
-    return { today, accounts, entries, clocked, studio, orders, pending, calendar }
+    return { today, accounts, entries, clocked, studio, orders, pending, calendar, tasks }
   }, [])
 
   return (
@@ -59,10 +63,14 @@ function Dashboard({ data }: { data: Data }) {
   const artists = summarize(people.filter((a) => a.role === 'artist'))
   const managers = summarize(people.filter((a) => a.role === 'manager'))
   const late = data.orders.filter((o) => o.status === 'open' && o.due_date && o.due_date < data.today)
+  const dueTasks = sortTasks(data.tasks.filter((t) => t.due_date !== null && t.due_date <= data.today), data.today)
+  const overdueCount = dueTasks.filter((t) => isOverdue(t, data.today)).length
+  const names = new Map(data.accounts.map((a) => [a.id, a]))
 
   return (
     <>
       <p className="muted">{formatLongDate(data.today)}</p>
+      <TaskStrip tasks={dueTasks} overdue={overdueCount} names={names} />
       <div className="portal-columns">
         <section className="card" aria-labelledby="logged-heading" data-testid="logged-today">
           <h2 id="logged-heading" style={{ marginTop: 0 }}>
@@ -89,7 +97,9 @@ function Dashboard({ data }: { data: Data }) {
             </li>
             <li>
               <span>Tasks due today and overdue</span>
-              <span className="muted">Coming in session 5</span>
+              <Link to="/tasks?view=everyone" className="hours-pill">
+                {dueTasks.length === 0 ? 'None' : dueTasks.length}
+              </Link>
             </li>
           </ul>
 
@@ -224,5 +234,51 @@ function CalendarLine({ status }: { status: CalendarStatus | null }) {
       {status.last_sync_at && <span className="muted"> · last sync {formatStamp(status.last_sync_at)}</span>}
       {status.last_error && <span className="small missing"> · {status.last_error}</span>}
     </p>
+  )
+}
+
+/** The due-today and overdue strip at the top of the dashboard. */
+function TaskStrip({ tasks, overdue, names }: { tasks: Task[]; overdue: number; names: Map<string, Account> }) {
+  return (
+    <section className={tasks.length ? 'card task-strip' : 'card task-strip quiet'} aria-labelledby="task-strip-heading" data-testid="task-strip">
+      <div className="topbar">
+        <h2 id="task-strip-heading" style={{ margin: 0 }}>
+          Tasks due today and overdue
+        </h2>
+        <Link to="/tasks?view=everyone" className="small">
+          All tasks ›
+        </Link>
+      </div>
+      {tasks.length === 0 ? (
+        <p className="muted" style={{ margin: '6px 0 0' }}>
+          Nothing due today and nothing overdue.
+        </p>
+      ) : (
+        <>
+          <p className="small" style={{ margin: '6px 0 0' }}>
+            {overdue > 0 ? <span className="missing">{overdue} overdue</span> : null}
+            {overdue > 0 && tasks.length - overdue > 0 ? ' · ' : ''}
+            {tasks.length - overdue > 0 ? `${tasks.length - overdue} due today` : ''}
+          </p>
+          <ul className="plain-list">
+            {tasks.map((t) => (
+              <li key={t.id}>
+                <span>
+                  <strong>{t.title}</strong>
+                  <span className="muted small">
+                    {' · '}
+                    {t.assignees.length ? nameList(t.assignees.map((id) => personName(names, id)).sort()) : 'Not assigned'}
+                    {t.order ? ` · ${t.order.name}` : ''}
+                  </span>
+                </span>
+                <span className="strip-meta">
+                  <PriorityBadge priority={t.priority} /> <TaskDue task={t} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   )
 }

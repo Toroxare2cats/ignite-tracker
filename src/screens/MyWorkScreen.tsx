@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase.ts'
 import { useProfile } from '../lib/useProfile.ts'
 import { useAsync } from '../lib/useAsync.ts'
@@ -124,14 +124,25 @@ export default function MyWorkScreen() {
               </ul>
 
               <h2>Tasks</h2>
-              <div className="card">
-                <p style={{ margin: 0 }}>
-                  <strong>{state.data.openTasks ?? 0}</strong> open {state.data.openTasks === 1 ? 'task' : 'tasks'}
-                </p>
-                <p className="muted small" style={{ margin: '4px 0 0' }}>
-                  The Tasks screen arrives in a later update.
-                </p>
-              </div>
+              <ul className="list">
+                <li>
+                  <Link to="/tasks" className="row" data-testid="my-work-tasks">
+                    <div className="row-main">
+                      <div className="row-title">
+                        {state.data.openTasks === null
+                          ? 'Your tasks'
+                          : `${state.data.openTasks} open ${state.data.openTasks === 1 ? 'task' : 'tasks'}`}
+                      </div>
+                      <div className="row-sub">
+                        {state.data.openTasks === null ? 'The count could not be read. Tap to open Tasks.' : 'Assigned to you · your own list'}
+                      </div>
+                    </div>
+                    <span className="chevron" aria-hidden="true">
+                      ›
+                    </span>
+                  </Link>
+                </li>
+              </ul>
             </>
           )}
         </>

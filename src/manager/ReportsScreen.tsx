@@ -12,6 +12,16 @@ const REPORTS = [
     what: 'One design: every closed run in date order with quantity, hours per bottle, cost per bottle, price per bottle and amount remaining per bottle.',
   },
   {
+    to: '/manage/reports/artist-week',
+    name: 'Artist week',
+    what: "One artist, one week: each day's orders, counts, logged hours, clocked hours (uAttend) and the unexplained gap, with blank days flagged.",
+  },
+  {
+    to: '/manage/reports/artist-by-design',
+    name: 'Artist by design',
+    what: "One artist's hours per bottle on one design across its closed runs, beside the studio figure for the same runs.",
+  },
+  {
     to: '/manage/reports/reconciliation',
     name: 'Reconciliation',
     what: 'All artists for a week: clocked (uAttend), hours on orders, calendar, studio time and the unexplained gap per day. Clocked days with no entry are flagged.',

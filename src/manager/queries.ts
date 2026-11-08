@@ -590,3 +590,20 @@ export interface DesignRun {
 export async function loadDesignPricing(designId: string): Promise<DesignRun[]> {
   return check(await supabase.rpc('design_pricing', { p_design_id: designId })) as DesignRun[]
 }
+
+// --- Artist by design (manager-only comparison, per design) ----------------
+
+export interface ArtistDesignRun {
+  order_id: string
+  order_name: string
+  closed_at: string
+  bottles_delivered: number | null
+  artist_minutes: number
+  artist_minutes_per_bottle: number | null
+  studio_minutes: number
+  studio_minutes_per_bottle: number | null
+}
+
+export async function loadArtistDesignHours(artistId: string, designId: string): Promise<ArtistDesignRun[]> {
+  return check(await supabase.rpc('artist_design_hours', { p_artist_id: artistId, p_design_id: designId })) as ArtistDesignRun[]
+}

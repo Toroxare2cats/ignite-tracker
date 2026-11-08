@@ -221,6 +221,7 @@ Done-when from the plan: upload a real uAttend week and see clocked, logged and 
 - `npx tsc -b` and `npx oxlint`: no errors.
 - `npm run build`: builds. The main file is 529 kB; the manager portal is a separate 144 kB file (it was 72 kB before this session's screens).
 - `npm run test`: privacy test 172 of 172, signed in as the real test artist, then all 37 screen tests passed (2.7 minutes). Run after step 7, with no code changes afterwards.
+- Final run before closing the session (2026-11-07, after the deploy): `npm run test` passed again (privacy test 172 of 172, then 37 of 37 screen tests in 2.8 minutes), and `npm run privacy-test` on its own passed 172 of 172. Both sign in as the test artist and the test manager. The app code is unchanged since the deployed commit `2780cc0`; the only later commits are this file and `.gitignore`.
 - By hand, on the local preview (2026-11-07), Arvin uploaded the real uAttend Timecard Report for Nov 1–7, 2026: the preview showed the four known people suggested and the seven unknown names to skip; after saving, Reconciliation for that week showed, for example, Freddy at 27h 46m clocked, 1h on orders and 26h 46m unexplained with four days flagged "No entry", Joey at 43h 44m clocked with five days flagged, and Arvin's four days without a clock-out as "Missing punch" rather than 0. Arvin checked each report in the browser pane as it was built and approved each step.
 - Live site: https://ignite-tracker.pages.dev serves this version (commit `2780cc0`), checked 2026-11-07 a few minutes after the push. The main app file, the manager portal file, the stylesheet and the manifest Cloudflare built are byte-for-byte the ones tested here; the service worker differs only in the order of two entries in its file list. The push itself was made from Arvin's terminal, because the app's permission check refused Claude Code's own push to the live site.
 
@@ -243,7 +244,7 @@ Only what the brief and build plan do not already say.
 
 ### Left unfinished or deferred
 
-- The real uAttend export files Arvin saved in `docs/samples/` hold real employees' names and clocked times. They are not committed; decide whether to keep them out of git (add `docs/samples/` to `.gitignore`) or commit them to the private repository.
+- The real uAttend export files Arvin saved in `docs/samples/` hold real employees' names and clocked times. They stay out of git (`docs/samples/` is in `.gitignore`; Arvin, 2026-11-07) and live only on Arvin's computer. The tests use made-up files in `tests/fixtures/`.
 - Studio time entries still have no screen; the Reconciliation and Artist week columns are ready for them.
 - Tasks due today on the dashboard, completed tasks in Artist week and a tasks CSV: session 5. Calendar connection status, Sync now and the calendar columns filling in: session 8.
 - Seven people in the uAttend file have no tracker account yet (Jack Basso, Eleanor Harvey, Charlie Matz, Kenny Pollok, Olivia Ramirez, Alan Robles, Joe Waropay); their hours are skipped until accounts exist. Once an account is made, match the name on Imports and upload the week again.

@@ -88,3 +88,15 @@ export function formatHours(minutes: number): string {
   const hours = minutes / 60
   return `${Number.isInteger(hours) ? hours : hours.toFixed(2).replace(/0$/, '')} h`
 }
+
+/** "Nov 1 – Nov 7, 2026" for a pay period or a week. */
+export function periodText(from: string, to: string): string {
+  return `${formatShortDate(from)} – ${formatFullDate(to)}`
+}
+
+/** Every date from `from` to `to`, inclusive. */
+export function datesBetween(from: string, to: string): string[] {
+  const out: string[] = []
+  for (let d = from; d <= to; d = addDays(d, 1)) out.push(d)
+  return out
+}

@@ -102,6 +102,9 @@ function ManagerFrame() {
             </span>
           )}
         </NavLink>
+        <NavLink to="/manage/imports" className={linkClass}>
+          Imports
+        </NavLink>
         <NavLink to="/manage/settings" className={linkClass}>
           Settings
         </NavLink>

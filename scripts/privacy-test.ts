@@ -75,6 +75,7 @@ const MANAGER_ONLY_TABLES = [
   'stock_allocations',
   'uattend_imports',
   'uattend_days',
+  'uattend_names',
   'calendar_connection',
   'calendar_ignored_emails',
 ] as const
@@ -87,7 +88,7 @@ const ALL_TABLES = [
   'profiles', 'pay_rates', 'designs', 'design_prices', 'design_photos',
   'orders', 'order_financials', 'order_financial_history', 'order_events',
   'entries', 'entry_time', 'studio_time',
-  'purchases', 'stock_allocations', 'uattend_imports', 'uattend_days', 'push_subscriptions',
+  'purchases', 'stock_allocations', 'uattend_imports', 'uattend_days', 'uattend_names', 'push_subscriptions',
   'tasks', 'task_assignees', 'personal_items',
   'calendar_connection', 'calendar_events', 'calendar_attendees', 'calendar_ignored_emails',
 ] as const
@@ -265,6 +266,7 @@ async function main(): Promise<number> {
     purchaseId?: string
     artistPurchaseId?: string
     importId?: string
+    uattendName?: string
     ignoredEmail?: string
     managerTaskId?: string
     artistTaskId?: string
@@ -326,6 +328,12 @@ async function main(): Promise<number> {
       mgr.from('uattend_days')
         .insert({ artist_id: manager.id, work_date: '2000-01-01', clocked_minutes: 480, import_id: fx.importId })
         .select('id').single())
+
+    fx.uattendName = `Privacy Test ${runId}`
+    await must('create uattend name', () =>
+      mgr.from('uattend_names')
+        .insert({ name_key: fx.uattendName!.toLowerCase(), uattend_name: fx.uattendName, profile_id: manager.id })
+        .select('name_key').single())
 
     fx.ignoredEmail = `privacy-test-${runId}@example.invalid`
     await must('create ignored email', () =>
@@ -505,6 +513,13 @@ async function main(): Promise<number> {
     await expectDenied('artist calls close_order', () =>
       art.rpc('close_order', { p_order_id: fx.orderId, p_bottles_delivered: 60, p_dabbers_delivered: 60, p_selling_price: 300, p_materials_total: 40 }))
     await expectDenied('artist calls reopen_order', () => art.rpc('reopen_order', { p_order_id: fx.orderId }))
+    await expectDenied('artist calls import_uattend', () =>
+      art.rpc('import_uattend', {
+        p_file_name: 'intruder.csv', p_period_from: '2000-01-02', p_period_to: '2000-01-08',
+        p_people: [{ name: fx.uattendName, profile_id: artist.id, days: [{ date: '2000-01-03', minutes: 60, missing_punch: false }] }],
+      }))
+    await expectDenied('artist calls set_uattend_match', () =>
+      art.rpc('set_uattend_match', { p_uattend_name: fx.uattendName, p_profile_id: artist.id }))
     await expectDenied('artist calls approve_personal_item', () =>
       art.rpc('approve_personal_item', { p_item_id: fx.managerItemId, p_assignees: [artist.id] }))
     await expectDenied('artist inserts a pay rate', () =>
@@ -731,6 +746,7 @@ async function main(): Promise<number> {
       await tidy('uattend_days', () => mgr.from('uattend_days').delete().eq('import_id', fx.importId!))
       await tidy('uattend_import', () => mgr.from('uattend_imports').delete().eq('id', fx.importId!))
     }
+    if (fx.uattendName) await tidy('uattend name', () => mgr.from('uattend_names').delete().eq('name_key', fx.uattendName!.toLowerCase()))
     if (fx.ignoredEmail) await tidy('ignored email', () => mgr.from('calendar_ignored_emails').delete().eq('email', fx.ignoredEmail!))
     for (const id of [fx.managerTaskId, fx.artistTaskId]) {
       if (id) await tidy('task', () => mgr.from('tasks').delete().eq('id', id))

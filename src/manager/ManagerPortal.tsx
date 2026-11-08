@@ -10,6 +10,7 @@ import NewPersonScreen from './NewPersonScreen.tsx'
 import PersonScreen from './PersonScreen.tsx'
 import ApprovalsScreen from './ApprovalsScreen.tsx'
 import SettingsScreen from './SettingsScreen.tsx'
+import ImportsScreen from './ImportsScreen.tsx'
 
 /**
  * The manager portal's screens.  This file and everything it imports load only
@@ -31,6 +32,7 @@ export default function ManagerPortal() {
       <Route path="people/new" element={<NewPersonScreen />} />
       <Route path="people/:personId" element={<PersonScreen />} />
       <Route path="approvals" element={<ApprovalsScreen />} />
+      <Route path="imports" element={<ImportsScreen />} />
       <Route path="settings" element={<SettingsScreen />} />
       <Route path="*" element={<Navigate to="orders" replace />} />
     </Routes>

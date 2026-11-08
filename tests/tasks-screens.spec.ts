@@ -87,7 +87,9 @@ test('artist: order page shows only my open tasks for it, My Work counts them, M
 
   await card.getByRole('button', { name: /Mark .* done/ }).click()
   await expect(page.getByText(`Done: “Pack order ${run}”.`)).toBeVisible()
-  await expect(section.getByText(`Pack order ${run}`)).toHaveCount(0)
+  // Off the list (the confirmation above it still names it, on purpose).
+  await expect(section.getByTestId('task').filter({ hasText: `Pack order ${run}` })).toHaveCount(0)
+  await expect(section.getByText('No open tasks for this order.')).toBeVisible()
 
   // The entry form never mentions tasks (rule 12).
   await page.getByRole('link', { name: /today's entry/ }).click()

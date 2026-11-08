@@ -27,7 +27,9 @@ export default function OrderTasks({
 
   if (state.kind !== 'ready') return null // the order page itself shows loading and errors
   const tasks = sortTasks(state.data)
-  if (tasks.length === 0 && !isManager) return null
+  // An artist with nothing open here sees no section, except right after ticking
+  // off the last one, so the "Done" confirmation stays on screen.
+  if (tasks.length === 0 && !isManager && !notice) return null
   const Heading = heading
 
   return (

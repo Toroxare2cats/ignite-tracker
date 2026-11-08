@@ -569,3 +569,24 @@ export interface ContributorCost {
 export async function loadOrderCostByContributor(orderId: string): Promise<ContributorCost[]> {
   return check(await supabase.rpc('order_cost_by_contributor', { p_order_id: orderId })) as ContributorCost[]
 }
+
+// --- Design pricing (manager-only): every closed run, oldest first ---------
+
+export interface DesignRun {
+  order_id: string
+  order_name: string
+  closed_at: string
+  bottles_delivered: number | null
+  total_minutes: number
+  minutes_per_bottle: number | null
+  labor_cost: number | null
+  materials_cost: number | null
+  cost_per_bottle: number | null
+  price_per_bottle: number | null
+  remaining_per_bottle: number | null
+  missing: string[]
+}
+
+export async function loadDesignPricing(designId: string): Promise<DesignRun[]> {
+  return check(await supabase.rpc('design_pricing', { p_design_id: designId })) as DesignRun[]
+}

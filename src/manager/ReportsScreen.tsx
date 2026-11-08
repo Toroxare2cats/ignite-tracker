@@ -7,6 +7,11 @@ const REPORTS = [
     what: 'One order: its entries, hours by contributor, labor cost, materials, selling price and amount remaining. Missing inputs are shown as missing.',
   },
   {
+    to: '/manage/reports/design-pricing',
+    name: 'Design pricing',
+    what: 'One design: every closed run in date order with quantity, hours per bottle, cost per bottle, price per bottle and amount remaining per bottle.',
+  },
+  {
     to: '/manage/reports/reconciliation',
     name: 'Reconciliation',
     what: 'All artists for a week: clocked (uAttend), hours on orders, calendar, studio time and the unexplained gap per day. Clocked days with no entry are flagged.',

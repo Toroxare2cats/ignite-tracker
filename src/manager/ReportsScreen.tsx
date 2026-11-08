@@ -1,0 +1,34 @@
+import { Link } from 'react-router-dom'
+
+const REPORTS = [
+  {
+    to: '/manage/reports/reconciliation',
+    name: 'Reconciliation',
+    what: 'All artists for a week: clocked (uAttend), hours on orders, calendar, studio time and the unexplained gap per day. Clocked days with no entry are flagged.',
+  },
+]
+
+/** The list of manager reports.  Each report is its own screen. */
+export default function ReportsScreen() {
+  return (
+    <>
+      <h1>Reports</h1>
+      <p className="muted">Manager views of the data everyone logs. Figures here are recorded labor and materials against price, not profit after overhead.</p>
+      <ul className="list">
+        {REPORTS.map((r) => (
+          <li key={r.to}>
+            <Link to={r.to} className="row">
+              <div className="row-main">
+                <div className="row-title">{r.name}</div>
+                <div className="row-sub">{r.what}</div>
+              </div>
+              <span className="chevron" aria-hidden="true">
+                ›
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}

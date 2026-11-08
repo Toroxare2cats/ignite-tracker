@@ -102,6 +102,9 @@ function ManagerFrame() {
             </span>
           )}
         </NavLink>
+        <NavLink to="/manage/reports" className={linkClass}>
+          Reports
+        </NavLink>
         <NavLink to="/manage/imports" className={linkClass}>
           Imports
         </NavLink>

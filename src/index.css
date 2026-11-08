@@ -1394,3 +1394,77 @@ button.photo-action.keep {
     text-align: left;
   }
 }
+
+.week-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.week-picker button.secondary {
+  padding: 6px 14px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.week-picker button.link {
+  width: auto;
+}
+
+.week-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.over {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.table tr.flagged td {
+  background: var(--danger-soft);
+}
+
+.table tr.over-row td {
+  background: var(--warn-soft);
+}
+
+.table tr.detail-row td {
+  padding-top: 0;
+  background: var(--bg);
+}
+
+.days-table button.link {
+  width: auto;
+  text-align: left;
+}
+
+.day-detail > li {
+  font-size: 0.92rem;
+}
+
+.person-days {
+  margin-top: 12px;
+}
+
+.person-days .table {
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .table tr.detail-row td {
+    display: block;
+    text-align: left;
+  }
+
+  .table tr.detail-row td::before {
+    content: none;
+  }
+
+  .day-detail > li {
+    flex-wrap: wrap;
+  }
+}

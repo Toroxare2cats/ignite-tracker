@@ -293,6 +293,7 @@ Done-when from the session prompt: create a weekly task for Joey and Freddy, com
 - `npx tsc -b` and `npx oxlint`: no errors.
 - `npm run build`: builds. The main file is 546 kB; the manager portal is a separate 155 kB file and the Everyone view a separate 5 kB file.
 - `npm run test` (2026-11-08): privacy test 203 of 203, signed in as the real test artist and the test manager, then all 43 screen tests passed (3.9 minutes). The first full run found one real flaw, fixed before this run: on an order page, when an artist ticked off the last open task the section vanished with its "Done" confirmation; it now stays until the confirmation has been seen.
+- Live site: https://ignite-tracker.pages.dev serves this version (commit `74b3187`), checked 2026-11-08 about a minute after Arvin pushed from his terminal. The main app file, the manager portal file, the Everyone file, the stylesheet and the manifest are byte-for-byte the ones tested here; the service worker has the same file list in a different order, as in session 4.
 
 ### Decisions made during the session
 

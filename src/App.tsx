@@ -14,6 +14,7 @@ import OrderScreen from './screens/OrderScreen.tsx'
 import EntryFormScreen from './screens/EntryFormScreen.tsx'
 import MyWeekScreen from './screens/MyWeekScreen.tsx'
 import MaterialsScreen from './screens/MaterialsScreen.tsx'
+import TasksScreen from './screens/TasksScreen.tsx'
 
 // Loaded only when a manager opens the portal, so artists' phones never download it.
 const ManagerPortal = lazy(() => import('./manager/ManagerPortal.tsx'))
@@ -168,6 +169,7 @@ function SignedInApp({ session }: { session: Session }) {
           <Route path="/orders/:orderId" element={<OrderScreen />} />
           <Route path="/orders/:orderId/entry" element={<EntryFormScreen />} />
           <Route path="/entries/:entryId" element={<EntryFormScreen />} />
+          <Route path="/tasks" element={<TasksScreen />} />
           <Route path="/week" element={<MyWeekScreen />} />
           <Route path="/materials" element={<MaterialsScreen />} />
           <Route path="/manage/*" element={<ManagerOnly />} />

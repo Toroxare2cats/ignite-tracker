@@ -1529,3 +1529,156 @@ button.photo-action.keep {
     align-items: stretch;
   }
 }
+
+/* Tasks ----------------------------------------------------------------- */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+li.task {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+}
+
+li.task.overdue {
+  box-shadow: inset 4px 0 0 var(--danger);
+}
+
+.task-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-title {
+  font-weight: 600;
+}
+
+.task-note {
+  white-space: pre-wrap;
+  margin-top: 2px;
+}
+
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+
+.task-sub {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 2px;
+}
+
+.task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 8px;
+}
+
+button.task-done {
+  flex: none;
+  min-width: 88px;
+  min-height: 48px;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--ok);
+  color: #fff;
+}
+
+button.task-done:hover {
+  background: #256628;
+}
+
+.priority-high {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.priority-normal {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.priority-low {
+  background: #eeeae6;
+  color: var(--muted);
+}
+
+details.done-recently {
+  margin-top: 12px;
+}
+
+details.done-recently summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 6px 0;
+}
+
+details.done-recently ul.list {
+  margin-top: 6px;
+}
+
+form.add-line {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin: 8px 0;
+}
+
+form.add-line input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+form.add-line button {
+  flex: none;
+  margin: 0;
+}
+
+li.personal-item {
+  padding: 12px 14px;
+}
+
+.personal-text {
+  white-space: pre-wrap;
+}
+
+.personal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: 4px;
+}
+
+.approved-line {
+  margin-top: 4px;
+}
+
+.approved-line .tag {
+  margin-left: 0;
+}
+
+.danger-text,
+button.link.danger-text {
+  color: var(--danger);
+}
+
+.task-strip li.task {
+  padding: 10px 14px;
+}

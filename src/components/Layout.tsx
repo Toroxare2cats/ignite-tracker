@@ -29,6 +29,12 @@ function ArtistFrame() {
             </span>
             My Work
           </NavLink>
+          <NavLink to="/tasks" className={({ isActive }) => (isActive ? 'tab active' : 'tab')}>
+            <span className="tab-icon" aria-hidden="true">
+              ☑
+            </span>
+            Tasks
+          </NavLink>
           <NavLink to="/week" className={({ isActive }) => (isActive ? 'tab active' : 'tab')}>
             <span className="tab-icon" aria-hidden="true">
               ▦
@@ -87,6 +93,9 @@ function ManagerFrame() {
         <p className="sidebar-heading">Manage</p>
         <NavLink to="/manage/dashboard" className={linkClass}>
           Today
+        </NavLink>
+        <NavLink to="/tasks" className={linkClass}>
+          Tasks
         </NavLink>
         <NavLink to="/manage/orders" className={linkClass}>
           Orders

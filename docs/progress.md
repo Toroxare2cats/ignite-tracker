@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-07, at the end of Session 3. Update this file at the end of every session.
+Last updated: 2026-11-07, at the end of Session 4. Update this file at the end of every session.
 
 ## Session 1 — Foundation (complete, 2026-11-06)
 
@@ -183,4 +183,70 @@ Only what the brief and build plan do not already say.
 - A reopen reason is readable by artists (the form warns).
 - Studio time entries still have no screen; planned with the reconciliation work in session 4.
 - The main JavaScript file is 527 kB; splitting it further is still a later clean-up.
+- Custom address, Supabase Pro, reminders and calendar sync: unchanged from session 1's list.
+
+## Session 4 — Reports and imports (complete, 2026-11-07)
+
+Done-when from the plan: upload a real uAttend week and see clocked, logged and gap hours per artist per day, with blank days flagged; the worked-example order shows correctly in Order cost and Design pricing. Arvin uploaded the real Nov 1–7, 2026 Timecard Report on the local preview during the session and checked each report in the browser pane as it was built; the automated tests cover the worked example in Order cost and Design pricing (see "Tested and passed at close").
+
+### What exists now
+
+**Imports** (`/manage/imports`). A manager uploads uAttend's Timecard Report as CSV: the version with one block per person and one line per day or punch (uAttend's "Batch Report"). The weekly-totals version (one line per person) is refused with an explanation, because it has no days in it.
+
+- The browser reads the file and shows a **preview before anything is saved**: each uAttend name, who that is in the tracker, each day's clocked time, the week's total, and a check against uAttend's own Total Hours line. Clocked time is regular plus overtime (REG + OT1 + OT2); paid leave (VAC, HOL, SIC) and OTH are shown but never counted as clocked. A punch with no clock-out (uAttend prints `------`) is a **missing punch**: the day shows as missing, never as zero. The Gross Pay line is skipped before anything reaches the database; no pay figure from the file is read or stored.
+- **Name matching.** Arvin confirmed on 2026-11-07: Arvin Makhsous → Arvin, Amelia Carroll → Amelia, Joseph Wallander → Joey, Freddy Mcclanahan → Freddy. The other seven people in the file have no tracker account yet and are skipped. The tracker remembers each spelling (`uattend_names`), suggests a match for a new spelling from the first name or login, and a manager chooses "Not in the tracker (skip)" or a person for anything new. Two names cannot be matched to one person. A wrong match is fixed on the same screen: the imported hours move to the right person, or are removed when the name is nobody.
+- **Saving** goes through one database function, `import_uattend`, in a single transaction. Every day of the pay period up to today gets a row for each matched person (0 on a day with no punches), so "did not clock in" is different from "not imported yet". **Uploading the same period again replaces those days for the people in the file**; it never adds a second copy, and people not in the file are untouched.
+- **Import history**: when, who, pay period, file, how many people and days, days with a missing punch, skipped names, and whether the upload is still in use or has been replaced by a later one.
+
+**Today** (`/manage/dashboard`), the manager dashboard and the default landing screen. Who has logged today and who has not (artists, then managers), with hours; a "clocked, no entry" flag once uAttend covers the day; the count of purchases waiting; open orders by due date with who logged on each today and a warning for overdue ones; placeholders for tasks due today (session 5) and the Google Calendar connection status (session 8; read from `calendar_connection`, never the key).
+
+**Reports** (`/manage/reports`), one screen each, all with a Sunday-to-Saturday week picker where a week applies (`?week=YYYY-MM-DD`):
+
+- **Order cost**: pick an order (closed first), then the costs card shared with the order page, closing details, **hours by contributor with each person's labor** (new function `order_cost_by_contributor`, rate in force on each work date), and every entry with counts, hours and note. Open orders show "Financials incomplete" and the hours.
+- **Design pricing**: pick a design (with its current price per bottle), then every closed run oldest first: delivered quantity, hours per bottle (all logged minutes ÷ bottles delivered), cost, price and amount remaining per bottle, and anything missing named. The latest complete run is called out beside the current price. Open orders never appear.
+- **Artist week**: one person (any account), one week: totals (clocked, on orders, calendar, studio, unexplained), produced counts each kept separate, and a card per day with clocked, logged, gap, flags and what was logged. Blank clocked days are flagged; a week with no uAttend rows says so.
+- **Artist by design**: pick a person and a design; their minutes per bottle on each closed run beside the studio figure for the same run, plus the overall figures. Only ever per design; no score.
+- **Reconciliation**: all artists for a week, totals per person and a day-by-day table each: clocked, on orders, calendar, studio, unexplained, flags, and which uAttend upload covers the week. The **formula lives in one place**, `src/lib/gap.ts` (rule 13): clocked − order minutes − calendar (capped at clocked, all-day and declined events left out) − studio; negative shown as "Over-explained by …", never hidden. Calendar and studio columns read their real tables, which stay empty until sessions 8 and later. Missing punches and un-imported days show as missing, never 0, and a week containing one has no clocked total or gap.
+
+**Exports** (`/manage/exports`), managers only: CSV of orders (with delivered quantities, price, materials, labor, recorded cost and amount remaining for closed orders), entries (each count separate, minutes, notes, who edited), designs (specs and current price per bottle) and purchases (amount, order or stock, status, decision). Built in the browser from what the signed-in manager can read, downloaded as `ignite-<what>-<date>.csv`. Every cell is quoted; text that looks like a spreadsheet formula is neutralised. Tasks join the exports in session 5.
+
+**Database.** Two new migrations, both applied: `0016` (`uattend_names`; `uattend_days` gains the source name and a missing-punch flag and allows null minutes only for a missing punch; `uattend_imports` gains people, skipped names and missing-punch counts; `import_uattend` and `set_uattend_match`, managers only) and `0017` (`order_cost_by_contributor`, managers only).
+
+**Tests.** Privacy test: 172 checks (7 new: artist gets nothing from `uattend_names`, is refused by `import_uattend`, `set_uattend_match` and `order_cost_by_contributor`; manager succeeds on each). Screen tests: 37 (9 new) in 18 files: Imports (preview, matching, save, stored days, history, re-upload replaces, fixing a match, refusing the weekly-totals file), Reconciliation (every case incl. phone width), Today, Order cost (worked example open and closed), Design pricing (two closed runs and one open), Artist week (incl. phone width), Artist by design, Exports (all four files; an artist turned away). Test fixtures live in January 2001 so no real person's hours or rates are touched. `tests/fixtures/` holds two made-up uAttend files in the real export's layout for the test accounts only.
+
+**Files.** New: `src/manager/uattend.ts` (reads the uAttend file), `uattendQueries.ts`, `ImportsScreen.tsx`, `TodayScreen.tsx`, `dashboardQueries.ts`, `ReportsScreen.tsx`, `ReconciliationScreen.tsx`, `OrderCostScreen.tsx`, `DesignPricingScreen.tsx`, `ArtistWeekScreen.tsx`, `ArtistByDesignScreen.tsx`, `ExportsScreen.tsx`, `exports.ts`, `reportQueries.ts`, `CostCard.tsx` (moved out of the order page), `WeekPicker.tsx`; `src/lib/gap.ts`, `useWeek.ts`, `csv.ts`.
+
+### Tested and passed at close (2026-11-07)
+
+- `npx tsc -b` and `npx oxlint`: no errors.
+- `npm run build`: builds. The main file is 529 kB; the manager portal is a separate 144 kB file (it was 72 kB before this session's screens).
+- `npm run test`: privacy test 172 of 172, signed in as the real test artist, then all 37 screen tests passed (2.7 minutes). Run after step 7, with no code changes afterwards.
+- By hand, on the local preview (2026-11-07), Arvin uploaded the real uAttend Timecard Report for Nov 1–7, 2026: the preview showed the four known people suggested and the seven unknown names to skip; after saving, Reconciliation for that week showed, for example, Freddy at 27h 46m clocked, 1h on orders and 26h 46m unexplained with four days flagged "No entry", Joey at 43h 44m clocked with five days flagged, and Arvin's four days without a clock-out as "Missing punch" rather than 0. Arvin checked each report in the browser pane as it was built and approved each step.
+- Live site: see the deploy note below.
+
+### Decisions made during the session
+
+Only what the brief and build plan do not already say.
+
+- **The uAttend file to upload is the daily Timecard Report** (uAttend calls the export "Batch Report"), not the weekly-totals Timecard Report Arvin exported first, which has no days in it (Arvin, 2026-11-07). The import refuses the weekly-totals version and says which one to export.
+- **Clocked time = REG + OT1 + OT2.** Paid leave (VAC, HOL, SIC) and OTH are shown in the preview but not counted as clocked, since they are not time in the studio to explain.
+- **A missing punch is shown as missing, never zero**, on the day and in any total that includes it (rule 6 applied to clocked time). In the real Nov 1–7 file Arvin's Tue–Fri had no clock-outs, so his week shows "Missing punch" rather than 11h 11m.
+- A day in the pay period with no punches is stored as 0 clocked minutes, so the reconciliation can tell "did not clock in" from "not imported yet". Days after today are not filled in.
+- Re-uploading a period replaces the days for the people in the file (by uAttend name and by matched person) and leaves everyone else alone. Each upload is kept in the history and marked "In use", "Partly replaced" or "Replaced by a later upload".
+- Name matches are remembered by spelling (trimmed, spaces collapsed, case ignored: uAttend writes "Joe  Waropay" with two spaces). Fixing a match moves already-imported hours; choosing "Not in the tracker" removes them.
+- The reconciliation lists every active account (managers log production work too) plus anyone switched off who has hours in the week; people with nothing imported and nothing logged collapse to one line.
+- Calendar minutes count toward a day by the event's start date in Chicago, non-declined and not all-day, capped at clocked (rule 13). Session 8 may refine events that cross midnight.
+- Today is the landing default ("dashboard"), as session 3 planned; Amelia's account stays on Orders.
+- Artist by design's overall figure: the artist's minutes over bottles delivered on the runs they logged on, beside the studio's minutes over all bottles delivered on every closed run of the design.
+- The CSV exports hold pay-related figures; the screen says to store them where only managers can see them.
+- The studio-time entry form (brief, "Time") was deferred again: this session's instruction was that the studio column is empty until a later session, and the column and formula are live now.
+
+### Left unfinished or deferred
+
+- The real uAttend export files Arvin saved in `docs/samples/` hold real employees' names and clocked times. They are not committed; decide whether to keep them out of git (add `docs/samples/` to `.gitignore`) or commit them to the private repository.
+- Studio time entries still have no screen; the Reconciliation and Artist week columns are ready for them.
+- Tasks due today on the dashboard, completed tasks in Artist week and a tasks CSV: session 5. Calendar connection status, Sync now and the calendar columns filling in: session 8.
+- Seven people in the uAttend file have no tracker account yet (Jack Basso, Eleanor Harvey, Charlie Matz, Kenny Pollok, Olivia Ramirez, Alan Robles, Joe Waropay); their hours are skipped until accounts exist. Once an account is made, match the name on Imports and upload the week again.
+- The Orders export calls the cost function once per closed order; fine for a studio's order count, but worth batching if it ever feels slow.
+- The manager reports on a real phone and Amelia's landing screen: still not tried by hand.
 - Custom address, Supabase Pro, reminders and calendar sync: unchanged from session 1's list.

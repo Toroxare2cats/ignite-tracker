@@ -45,8 +45,12 @@ test('save an entry: hours required, chips, confirmation, no duplicate, shows in
   await clearToday(page)
   await page.getByRole('link', { name: "Add today's entry" }).click()
 
+  // The form says where it stands.
+  await expect(page.getByRole('status')).toHaveText('Not saved yet')
+
   // Hours are required.
   await page.getByRole('spinbutton', { name: 'Bottles completed' }).fill('4')
+  await expect(page.getByRole('status')).toHaveText('Unsaved changes')
   await page.getByRole('button', { name: 'Save entry' }).click()
   await expect(page.getByRole('alert')).toContainText('Add your hours')
 

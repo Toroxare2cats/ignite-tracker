@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test'
 import { managerClient, openTodaysEntry, shot, signInAsArtist } from './helpers.ts'
+import { addDays, formatShortDate, todayChicago, weekStart } from '../src/lib/dates.ts'
+
+test('weeks run Sunday through Saturday', () => {
+  expect(weekStart('2026-11-08')).toBe('2026-11-08') // a Sunday starts its own week
+  expect(weekStart('2026-11-09')).toBe('2026-11-08') // Monday
+  expect(weekStart('2026-11-14')).toBe('2026-11-08') // Saturday is the last day
+  expect(weekStart('2026-11-15')).toBe('2026-11-15') // the next Sunday starts a new one
+  expect(weekStart('2027-01-02')).toBe('2026-12-27') // across the new year
+})
 
 test('My Week shows this week and last week with own hours and counts', async ({ page }) => {
   await signInAsArtist(page)
@@ -16,6 +25,8 @@ test('My Week shows this week and last week with own hours and counts', async ({
   await page.goto('/week')
   await expect(page.getByRole('heading', { name: 'My Week' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'This week' })).toHaveAttribute('aria-selected', 'true')
+  const sunday = weekStart(todayChicago())
+  await expect(page.getByText(`${formatShortDate(sunday)} – ${formatShortDate(addDays(sunday, 6))}`)).toBeVisible()
   const today = page.locator('.day', { hasText: 'Today' })
   await expect(today).toContainText('Sample order: plain bottle')
   await expect(today).toContainText('6 bottles')
@@ -33,12 +44,14 @@ test('Materials: submit a purchase with a receipt; it shows as pending in own su
   await expect(page.getByRole('heading', { name: 'Materials' })).toBeVisible()
   await page.getByRole('button', { name: 'Record a purchase' }).click()
 
-  // Validation.
+  // Saved state, and validation.
+  await expect(page.getByRole('status')).toHaveText('Not saved yet')
   await page.getByRole('button', { name: 'Submit purchase' }).click()
-  await expect(page.getByRole('alert')).toContainText('what was bought')
+  await expect(page.getByRole('status')).toContainText('what was bought')
 
   const stamp = `Playwright wire ${Date.now()}`
   await page.getByLabel('What was bought').fill(stamp)
+  await expect(page.getByRole('status')).toHaveText('Unsaved changes')
   await page.getByLabel('Amount paid ($)').fill('12.50')
   await page.getByText('Studio stock').click()
   await page.getByLabel('Receipt photo (optional)').setInputFiles({

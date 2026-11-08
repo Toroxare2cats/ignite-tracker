@@ -17,12 +17,11 @@ export function addDays(iso: string, days: number): string {
   return date.toISOString().slice(0, 10)
 }
 
-/** Monday of the week that contains the given date. */
+/** Sunday of the week that contains the given date.  Weeks run Sunday through Saturday. */
 export function weekStart(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay() // 0 = Sunday
-  const back = dow === 0 ? 6 : dow - 1
-  return addDays(iso, -back)
+  return addDays(iso, -dow)
 }
 
 /** Mirrors app.within_edit_window: today and the 7 days before it. */
@@ -34,6 +33,7 @@ export function withinEditWindow(workDate: string): boolean {
 const WEEKDAY_DATE = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })
 const LONG_DATE = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' })
 const SHORT_DATE = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' })
+const FULL_DATE = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' })
 const STAMP = new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 function utcDate(iso: string): Date {
@@ -54,6 +54,11 @@ export function formatLongDate(iso: string): string {
 /** "Nov 6" */
 export function formatShortDate(iso: string): string {
   return SHORT_DATE.format(utcDate(iso))
+}
+
+/** "Nov 6, 2026", for dates that may be in another year. */
+export function formatFullDate(iso: string): string {
+  return FULL_DATE.format(utcDate(iso))
 }
 
 /** "Today", "Yesterday" or the weekday date. */

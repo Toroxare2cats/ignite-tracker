@@ -33,11 +33,13 @@ Installable web app at tracker.igniteglass.com for a glassblowing studio. Artist
 6. Missing price, materials or rate shows as missing, never zero.
 7. Completion is explicit: finish_order, close_order, reopen_order functions only. close_order requires delivered quantities, price and materials.
 8. Artists edit their own entries for 7 days; managers edit anything; every edit sets edited_by / edited_at.
-9. The service_role key is never committed, logged, or used in the app.
+9. The service_role key is never committed, logged, or used in the app. One approved exception (Arvin, 2026-11-06): the `manage-account` Supabase function, which runs on Supabase's servers and uses it only to create logins and reset passwords, after checking the caller is an active manager. The key never reaches a browser or phone.
 10. Dependencies are updated only in a session that says so.
 11. Google Calendar access is read-only. Request only the calendar.readonly scope; the app never creates, edits or deletes calendar events. The access key lives in Supabase secrets and is used only by the sync function.
 12. Tasks are never part of the daily entry form and never required to log an entry. Only managers create, assign, edit or reopen tasks; any assignee or manager may complete one. Personal-list items are visible only to their owner and managers.
 13. Reconciliation gap = clocked minutes (uAttend) − order minutes − calendar minutes (capped at clocked, all-day events excluded) − studio minutes; negative results are shown as over-explained, never hidden.
+14. Anything a manager can see on desktop is also available in the installed app on a phone, and the reverse. There is one app and one menu: never hide a manager screen or feature by device. Reports may be designed for desktop but must still open and work on a phone.
+15. Weeks run Sunday through Saturday, everywhere.
 
 **Counting definitions (from the brief)**
 

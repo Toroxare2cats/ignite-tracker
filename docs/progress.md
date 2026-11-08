@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-06, at the end of Session 2. Update this file at the end of every session.
+Last updated: 2026-11-07, at the end of Session 3. Update this file at the end of every session.
 
 ## Session 1 — Foundation (complete, 2026-11-06)
 
@@ -59,7 +59,7 @@ Done-when from the plan: install the app on a phone, log an entry on a sample or
 - **Order** (`/orders/:id`): name, status badge, product image if the design has one, design, quantity (dabbers only when the design has them), due date (late dates in red), primary artist, finished-by details; a prominent "Add today's entry" button that becomes "Edit today's entry" once the person has logged today; a collapsible Resources section (dimensions, colors and finishes, instructions, reference photos with tap-to-enlarge); the shared work log, newest first, showing each entry's artist, date, counts as pills, note, and hours only on the viewer's own entries (managers see all hours because `entry_time` returns them all rows), plus the "Edited by … · time" marker. Closed orders show a notice instead of the button.
 - **Add entry** (`/orders/:id/entry`): the brief's field order. Work date (defaults to today; artists limited to the last 7 days), bottles, dabbers (only if the design has a dabber), Prep collapsed under one heading (points, color tube preps, blanks), fuming (only if fumed), hours as 15-minute chips (15m to 8h) with −15m / +15m and free hour/minute boxes, note. Hours are required; counts are optional. Save disables the button while saving; the database's one-entry-per-artist-per-order-per-day rule catches anything else and the app then updates the existing entry instead. A failed save keeps what was typed. The confirmation screen shows the summary and offers "Add another order" (back to My Work with a "pick the next order" notice) and "Back to this order".
 - **Editing** (`/entries/:id`): the same form loaded with an existing entry. Artists edit or delete their own entries within 7 days of the work date; older ones open read-only with an explanation. Managers can edit any entry, including its date. Deleting asks for confirmation first.
-- **My Week** (`/week`): This week / Last week (Monday to Sunday), a totals card (hours, and each count type on its own, never added together), then every day with its entries, order names, counts and hours. Calendar events and completed tasks are added in sessions 8 and 5.
+- **My Week** (`/week`): This week / Last week (Sunday through Saturday), a totals card (hours, and each count type on its own, never added together), then every day with its entries, order names, counts and hours. Calendar events and completed tasks are added in sessions 8 and 5.
 - **Materials** (`/materials`): "Record a purchase" opens the form: what was bought, amount, "An order" (pick from open orders) or "Studio stock", optional receipt photo (camera on phones; files go to `receipts/<own id>/…`). Submissions start pending. Below, the person's own submissions with status, order or stock, time, a rejection reason if any, and a "View receipt" link that makes a short-lived signed URL.
 
 **Installable app.** `vite-plugin-pwa` generates `manifest.webmanifest` (name Ignite Tracker, short name Ignite, standalone full-screen, portrait, orange theme) and a service worker that caches only the app's own built files and updates itself in the background. Icons: `public/icon.svg` (source), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` (Android), `apple-touch-icon.png` (iPhone). The iPhone meta tags are in `index.html`. Nothing from the database is cached.
@@ -86,7 +86,7 @@ Full steps with troubleshooting are in `docs/install-on-phone.md`. In short:
 
 ### Decisions made during the session
 
-- Weeks run Monday to Sunday in My Week. The brief does not say; change it in `src/lib/dates.ts` (`weekStart`) if the studio counts weeks differently.
+- Weeks run Sunday through Saturday (Arvin, session 3; session 2 had assumed Monday to Sunday). It is set in one place, `weekStart` in `src/lib/dates.ts`.
 - An artist cannot change the work date of an existing entry (delete and re-add instead); a manager can. This keeps "one entry per artist per order per day" simple on the phone.
 - Opening "Add today's entry" when today's entry already exists goes straight to editing it, so a second phone or a repeated tap never makes a duplicate.
 - The order page shows a "Logged so far" card above the work log: entries, artists and each activity count totalled separately. It is worded as logged counts, with no bar or percentage against the ordered quantity, because daily counts are what went in the kiln, not what survived (rule 3). Added after Arvin's first phone test on 2026-11-06; a true completion indicator would be a change to the brief.
@@ -102,4 +102,76 @@ Full steps with troubleshooting are in `docs/install-on-phone.md`. In short:
 - The production JavaScript bundle is about 517 kB; fine for now, but a later session could split it so the first open is quicker on slow connections.
 - The Playwright tests leave today's test entries on the sample orders (they clean up purchases and the planted old entries). Harmless on sample data; delete them from the manager portal once it exists.
 
-## Session 3 — Manager portal (not started)
+## Session 3 — Manager portal (complete, 2026-11-07)
+
+Done-when from the plan: create a real design and order, approve a test purchase, and close an order with the worked example's numbers (one artist 3 hours at $22, another 2 hours at $25, $40 materials, $300 price), giving $116 labor, $156 recorded cost and $144 remaining; closing refuses without a price. The automated tests do all of this with the test accounts (`tests/manager-orders.spec.ts`, `tests/manager-approvals.spec.ts`, and the privacy test's close checks). Arvin's own run-through on real data is still to do.
+
+### What exists now
+
+**Manager portal** (`/manage/…`). Managers get one menu: Orders, Designs, People, Approvals, Settings, then the artist screens My Work, My Week and Materials. On a desktop the menu sits down the left side; on a phone the same menu sits across the top. Every screen and action is the same on both (rule 14). The portal's code downloads only for managers, which is about speed, not privacy: the database decides who reads what.
+
+- **Orders** (`/manage/orders`): every order in a table (order, design, quantity, due date, primary artist, status), soonest due first, with In progress / Closed / All and a search by order or design name. "New order" opens the order form.
+- **New order / Edit or reassign**: name, design, bottles ordered, dabbers ordered (only when the design has a dabber), due date and primary artist, all required except dabbers. The design's dimensions, colors and finishes and instructions are copied onto the order and can be adjusted for that order. The design cannot be changed once the order exists. Changing the primary artist is recorded in the order's history with who and when. A closed order cannot be edited until it is reopened.
+- **Order page for managers** (`/manage/orders/:id`): the details, the buttons its status allows (Edit or reassign, Mark Finished, Close order, Reopen, Log my own work), Costs, Materials, the work log with everyone's hours, and the full history.
+  - *Mark Finished*: optional packing note, box dimensions in inches and package weight in pounds.
+  - *Close*: bottles delivered, dabbers delivered (when the design has them), selling price (order total) and materials cost (manager total) are all required, plus an optional materials note. Approved purchases and allocated stock are added on top of the manager total automatically; the form says so and warns when purchases are still waiting for a decision. The database refuses a close without the price or delivered quantities as well.
+  - *Reopen*: back to Open with an optional reason; the earlier completion details stay in the history. Artists can read order history, so the form says to leave money out of the reason.
+  - *Costs*: "Financials incomplete" until the order is closed. Once closed: labor, materials, recorded cost, selling price and amount remaining, then per delivered bottle: recorded cost, price, amount remaining and logged time. Anything not entered shows as Missing. A note says this is recorded labor and materials against price, not profit after overhead.
+  - *Materials*: the manager total and note (saved on their own), plus the approved purchases and stock allocated to this order. Read-only while the Close form is open and on a closed order.
+- **Designs** (`/manage/designs`): every design with its current selling price, Missing until one is entered. A new design has a name, dimensions, colors and finishes, production instructions, and which activities its entry form shows (for example dabbers and fuming). The design's page adds a dated selling price (a new price is a new row from a start date; old ones are never overwritten), a product image, reference photos with captions (artists see them under Resources), and retiring the design. Unticking an activity never erases counts already logged.
+- **People** (`/manage/people`): every account with its role and current pay rate, Missing until one is entered. "Add person" creates a login (name, login email, starting password, role, optional alternate emails); public sign-up stays off, so this is the only way an account is made. A person's page has their details (name, role and alternate emails; the login email is shown but cannot be changed here), a dated pay rate added as new rows, "Set a new password", and Deactivate / Reactivate. Accounts are never deleted, and a deactivated person's history and rates are kept as they were.
+- **Approvals** (`/manage/approvals`): three tabs. *Waiting* lists pending purchases with who, what, amount, order or stock and the receipt; Approve (reason optional) or Reject (reason required). *Stock* lists approved studio-stock purchases with what is left of each, and allocates part of one to an order (order, amount, note) or removes an allocation. *Decided* shows the last 50 decisions. A decision is final.
+- **Settings** (`/manage/settings`): each manager's landing screen (see below).
+
+**Artist screens, changes this session.** An artist (or manager) can mark an order Finished from the order page, with the same packing note, box dimensions and weight; it stays available whatever has been logged, and logging continues afterwards. Weeks run Sunday through Saturday. The Materials form and the daily entry form now show whether they are saved.
+
+**Saved and unsaved states.** Every form that saves shows where it stands just above or beside its save button: "No changes yet" or "Not saved yet", "Unsaved changes", "Saving…", "Saved" with the time, or the error. Closing or reloading the page with unsaved changes brings up the browser's own warning; tapping another menu item does not (Arvin's choice, below). Cards on one page save on their own, so saving a photo never throws away unsaved edits to the details. The shared pieces are `src/lib/useFormState.ts` and `src/components/form.tsx`.
+
+**Landing screen.** Each manager picks where the app opens: Orders, Designs, People, Approvals or My Work. It is stored on their own account (`profiles.home_screen`), so it follows them between phone and desktop. It applies once each time the app is opened and again after signing in; a refresh stays put, the My Work link still goes to My Work, and a link to a particular page goes to that page. Artists always open on My Work. A manager who has not chosen opens on Orders for now and moves to the Dashboard automatically once it exists (session 4). Amelia's account is set to Orders. Code: `src/lib/landing.ts`, `Home` in `src/App.tsx`.
+
+**Database.** Four new migrations, all applied:
+
+- `0012` Reassigning the primary artist is recorded in the order history (ids only, no money). Hours on a closed order are locked in the database, not just on screen.
+- `0013` Package weight on orders; `finish_order` takes it and `reopen_order` keeps it in the history.
+- `0014` Alternate emails are manager-only. A manager cannot deactivate their own account or change their own role, so there is always an active manager. A deactivated account's pay rates are frozen.
+- `0015` A purchase decision is final. A closed order's costs hold still: approving a purchase or changing a stock allocation on a closed order is refused (rejecting is allowed, since it changes no cost). Two managers allocating from one stock purchase at the same moment cannot go over its amount.
+
+**Account function.** `supabase/functions/manage-account` runs on Supabase's servers. It creates logins and sets new passwords, and only after checking that the caller is an active manager. It is the one approved place the admin (service_role) key is used (rule 9); the key never reaches a browser or phone. Deploy it again after a change with `npx supabase functions deploy manage-account --project-ref <ref> --use-api`.
+
+**Tests.** The privacy test now has 165 checks (39 new), covering purchase decisions, stock allocation, design and photo edits, reassignment, alternate emails, the manager lock-out guards, closing without a price or quantities, hours on a closed order, deactivated accounts, and an artist changing a manager's landing screen. There are 28 screen tests (21 new): the manager screens at desktop size, phone-width checks for every manager screen, and an artist being turned away from each one. Manager tests sign in as the test manager from `.env` and remove the orders, designs and purchases they make. The People test makes a throwaway login and removes it afterwards with the admin key, which it reads through the logged-in Supabase CLI into memory the same way `scripts/seed.ts` does; it is never written down or printed. Selling prices and pay rates can only be added, so the tests reuse the Test Artist and Test Manager rates and a retired design called "Test fixture: design prices"; the price and rate tests add a few rows to those test fixtures each run.
+
+### Tested and passed at close (2026-11-07)
+
+- `npx tsc -b` and `npx oxlint`: no errors.
+- `npm run build`: builds. The main file is 527 kB; the manager portal is a separate 72 kB file.
+- `npm run test`: privacy test 165 of 165, signed in as the real test artist, then all 28 screen tests passed (2.3 minutes).
+- Live site: to be confirmed after the push.
+- Not tried yet: the manager screens on a real phone, real receipt photos from an iPhone, and signing in as Amelia to see her landing screen.
+
+### Decisions made during the session
+
+- Package weight, in pounds and optional, is recorded with the box dimensions when an order is marked Finished. An addition to the brief's packing note and box dimensions (Arvin).
+- Mark Finished stays available at all times, for artists and managers, with no lock until enough bottles are logged (Arvin). Logged bottles count what went into the kiln, not what survived.
+- Weeks run Sunday through Saturday everywhere (Arvin; rule 15).
+- Anything a manager can see on a desktop is also in the installed app on a phone, and the reverse (Arvin; rule 14).
+- The admin key may be used only by the `manage-account` function, on Supabase's servers (Arvin, 2026-11-06; rule 9).
+- New orders require quantity, due date and primary artist. Box dimensions are in inches. The design is fixed once an order exists; make a new order to change it.
+- A closed order cannot be edited, have entries or hours changed, have purchases approved or have stock allocations changed until it is reopened.
+- A design's selling price and a person's pay rate are added on that design's or person's own page right after it is created, because each is a dated row of its own.
+- Purchase decisions are final. There is no undo for a wrong approval yet; ask for one if it becomes a problem.
+- Landing screen: once per opening of the app and after signing in; Orders until the Dashboard exists. The brief gives Amelia's home as the assignment board in one place and Orders in another; the session 3 instruction said Orders, so her account uses Orders.
+- Settings holds only the landing screen for now; the calendar settings in the brief come with the calendar work in session 8.
+- Unsaved changes warn only on closing or reloading the page, not when tapping another menu item (Arvin, 2026-11-07: keep it as is).
+- On the Materials form, Cancel throws away what was typed, and the form starts fresh after each submission instead of remembering the last order picked.
+- The test artist's password showed up in the Claude Code conversation while a failing test was being debugged. It is a test-only account that can see what any artist sees and nothing financial. Arvin chose to leave it as is (2026-11-07). To replace it later: set a new password on the test artist's People page and put it in `PRIVACY_TEST_ARTIST_PASSWORD` in `.env`.
+
+### Left unfinished or deferred
+
+- Arvin's own run-through of the done-when on real data, and the manager screens on a real phone.
+- The Dashboard is session 4; managers without a landing choice will open on it automatically.
+- A login email cannot be changed from People. It would need the account function; ask if it is wanted.
+- The test accounts appear in the primary-artist list on the order form.
+- A reopen reason is readable by artists (the form warns).
+- Studio time entries still have no screen; planned with the reconciliation work in session 4.
+- The main JavaScript file is 527 kB; splitting it further is still a later clean-up.
+- Custom address, Supabase Pro, reminders and calendar sync: unchanged from session 1's list.

@@ -15,7 +15,7 @@ interface Data {
 
 /**
  * My Week: the person's own days, orders, counts and hours for this week and
- * last week (Monday to Sunday).  Each activity is totalled on its own; they
+ * last week (Sunday through Saturday).  Each activity is totalled on its own; they
  * are never added together (rule 3).  Calendar events and completed tasks
  * join this screen in later sessions.
  */
@@ -24,13 +24,13 @@ export default function MyWeekScreen() {
   const [which, setWhich] = useState<'this' | 'last'>('this')
 
   const today = todayChicago()
-  const thisMonday = weekStart(today)
-  const lastMonday = addDays(thisMonday, -7)
-  const from = which === 'this' ? thisMonday : lastMonday
+  const thisSunday = weekStart(today)
+  const lastSunday = addDays(thisSunday, -7)
+  const from = which === 'this' ? thisSunday : lastSunday
   const to = addDays(from, 6)
 
   const { state, reload } = useAsync<Data>(async () => {
-    const entries = await loadOwnEntries(profile.id, lastMonday, addDays(thisMonday, 6))
+    const entries = await loadOwnEntries(profile.id, lastSunday, addDays(thisSunday, 6))
     const ids = [...new Set(entries.map((e) => e.order_id))]
     const orderNames = new Map<string, string>()
     if (ids.length) {
@@ -39,7 +39,7 @@ export default function MyWeekScreen() {
       for (const o of data as { id: string; name: string }[]) orderNames.set(o.id, o.name)
     }
     return { entries, orderNames }
-  }, [profile.id, thisMonday])
+  }, [profile.id, thisSunday])
 
   return (
     <>
@@ -70,7 +70,7 @@ function Week({ entries, orderNames, from }: { entries: EntryWithTime[]; orderNa
   const totalParts = describeCounts(totals)
   const days = new Set(entries.map((e) => e.work_date))
 
-  // Every day of the week, Monday first, so blank days are visible too.
+  // Every day of the week, Sunday first, so blank days are visible too.
   const dates = Array.from({ length: 7 }, (_, i) => addDays(from, i)).filter((d) => d <= todayChicago() || days.has(d))
 
   return (

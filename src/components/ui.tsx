@@ -12,14 +12,14 @@ export function PurchaseBadge({ status }: { status: PurchaseStatus }) {
   return <span className={`badge purchase-${status}`}>{label}</span>
 }
 
-export function DueDate({ date, status }: { date: string | null; status: OrderStatus }) {
+export function DueDate({ date, status, bare = false }: { date: string | null; status: OrderStatus; bare?: boolean }) {
   if (!date) return <span className="muted">No due date</span>
   const today = todayChicago()
   const late = status === 'open' && date < today
   const soon = status === 'open' && !late && date <= today
   return (
     <span className={late ? 'due late' : soon ? 'due soon' : 'due'}>
-      {late ? 'Was due ' : 'Due '}
+      {late ? 'Was due ' : bare ? '' : 'Due '}
       {formatShortDate(date)}
     </span>
   )

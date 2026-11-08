@@ -1,14 +1,16 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useProfile } from '../lib/useProfile.ts'
 import { useAsync } from '../lib/useAsync.ts'
+import { useFormState } from '../lib/useFormState.ts'
 import { formatStamp } from '../lib/dates.ts'
-import { loadOpenOrders, loadOwnPurchases, signedUrl, submitPurchase } from '../lib/queries.ts'
-import type { OrderWithDesign, Purchase } from '../lib/types.ts'
+import { loadOpenOrders, loadOwnPurchases, signedUrl, submitPurchase, type OwnPurchase } from '../lib/queries.ts'
+import type { OrderWithDesign } from '../lib/types.ts'
 import { ErrorNote, Loading, PurchaseBadge } from '../components/ui.tsx'
+import { SaveBar } from '../components/form.tsx'
 
 interface Data {
   orders: OrderWithDesign[]
-  purchases: Purchase[]
+  purchases: OwnPurchase[]
 }
 
 /**
@@ -24,49 +26,8 @@ export default function MaterialsScreen() {
     return { orders, purchases }
   }, [profile.id])
 
-  const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
-  const [target, setTarget] = useState<'order' | 'stock'>('order')
-  const [orderId, setOrderId] = useState('')
-  const [receipt, setReceipt] = useState<File | null>(null)
-  const fileInput = useRef<HTMLInputElement>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-    if (busy) return
-    setError(null)
-    setSaved(null)
-    const amountNumber = Number(amount.replace(/[$,\s]/g, ''))
-    if (description.trim() === '') return setError('Say what was bought.')
-    if (!Number.isFinite(amountNumber) || amountNumber < 0 || amount.trim() === '') return setError('Enter the amount from the receipt.')
-    if (target === 'order' && !orderId) return setError('Pick the order it was for, or choose Studio stock.')
-    setBusy(true)
-    try {
-      await submitPurchase({
-        artist_id: profile.id,
-        description: description.trim(),
-        amount: Math.round(amountNumber * 100) / 100,
-        order_id: target === 'order' ? orderId : null,
-        for_stock: target === 'stock',
-        receipt,
-      })
-      setSaved(`Submitted: ${description.trim()}. A manager will approve or reject it.`)
-      setDescription('')
-      setAmount('')
-      setReceipt(null)
-      if (fileInput.current) fileInput.current.value = ''
-      setShowForm(false)
-      reload()
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <>
@@ -82,59 +43,16 @@ export default function MaterialsScreen() {
       )}
 
       {showForm && (
-        <form onSubmit={handleSubmit} noValidate className="card">
-          <label htmlFor="description" style={{ marginTop: 0 }}>
-            What was bought
-          </label>
-          <input id="description" type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. 2 lb silver fume wire" autoComplete="off" />
-
-          <label htmlFor="amount">Amount paid ($)</label>
-          <input id="amount" type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" autoComplete="off" />
-
-          <label>For</label>
-          <div className="radio-group">
-            <label className={target === 'order' ? 'checked' : ''}>
-              <input type="radio" name="target" checked={target === 'order'} onChange={() => setTarget('order')} />
-              An order
-            </label>
-            <label className={target === 'stock' ? 'checked' : ''}>
-              <input type="radio" name="target" checked={target === 'stock'} onChange={() => setTarget('stock')} />
-              Studio stock
-            </label>
-          </div>
-
-          {target === 'order' && (
-            <>
-              <label htmlFor="order">Which order</label>
-              <select id="order" value={orderId} onChange={(e) => setOrderId(e.target.value)} disabled={state.kind !== 'ready'}>
-                <option value="">Choose an order…</option>
-                {state.kind === 'ready' &&
-                  state.data.orders.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
-              </select>
-            </>
-          )}
-
-          <label htmlFor="receipt">Receipt photo (optional)</label>
-          <input id="receipt" ref={fileInput} type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => setReceipt(e.target.files?.[0] ?? null)} />
-          {receipt && <p className="form-note">{receipt.name}</p>}
-
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-
-          <button type="submit" className="btn block big" disabled={busy}>
-            {busy ? 'Submitting…' : 'Submit purchase'}
-          </button>
-          <button type="button" className="btn secondary block" onClick={() => setShowForm(false)} disabled={busy}>
-            Cancel
-          </button>
-        </form>
+        <PurchaseForm
+          artistId={profile.id}
+          orders={state.kind === 'ready' ? state.data.orders : null}
+          onCancel={() => setShowForm(false)}
+          onSaved={(what) => {
+            setSaved(`Submitted: ${what}. A manager will approve or reject it.`)
+            setShowForm(false)
+            reload()
+          }}
+        />
       )}
 
       <h2>Your submissions</h2>
@@ -144,7 +62,7 @@ export default function MaterialsScreen() {
         <ul className="list">
           {state.data.purchases.length === 0 && <li className="empty">You have not recorded any purchases yet.</li>}
           {state.data.purchases.map((p) => (
-            <PurchaseRow key={p.id} purchase={p} orderName={p.order_id ? state.data.orders.find((o) => o.id === p.order_id)?.name : undefined} />
+            <PurchaseRow key={p.id} purchase={p} />
           ))}
         </ul>
       )}
@@ -152,7 +70,90 @@ export default function MaterialsScreen() {
   )
 }
 
-function PurchaseRow({ purchase, orderName }: { purchase: Purchase; orderName?: string }) {
+function PurchaseForm({
+  artistId,
+  orders,
+  onCancel,
+  onSaved,
+}: {
+  artistId: string
+  orders: OrderWithDesign[] | null
+  onCancel: () => void
+  onSaved: (what: string) => void
+}) {
+  const form = useFormState({ description: '', amount: '', target: 'order' as 'order' | 'stock', orderId: '', receipt: null as File | null })
+  const { values, set } = form
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    const what = values.description.trim()
+    const amountNumber = Number(values.amount.replace(/[$,\s]/g, ''))
+    if (what === '') return form.fail('Say what was bought.')
+    if (!Number.isFinite(amountNumber) || amountNumber < 0 || values.amount.trim() === '') return form.fail('Enter the amount from the receipt.')
+    if (values.target === 'order' && !values.orderId) return form.fail('Pick the order it was for, or choose Studio stock.')
+    const ok = await form.submit(async (v) => {
+      await submitPurchase({
+        artist_id: artistId,
+        description: what,
+        amount: Math.round(amountNumber * 100) / 100,
+        order_id: v.target === 'order' ? v.orderId : null,
+        for_stock: v.target === 'stock',
+        receipt: v.receipt,
+      })
+    })
+    if (ok) onSaved(what)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="card">
+      <label htmlFor="description" style={{ marginTop: 0 }}>
+        What was bought
+      </label>
+      <input id="description" type="text" value={values.description} onChange={(e) => set('description', e.target.value)} placeholder="e.g. 2 lb silver fume wire" autoComplete="off" />
+
+      <label htmlFor="amount">Amount paid ($)</label>
+      <input id="amount" type="text" inputMode="decimal" value={values.amount} onChange={(e) => set('amount', e.target.value)} placeholder="0.00" autoComplete="off" />
+
+      <label>For</label>
+      <div className="radio-group">
+        <label className={values.target === 'order' ? 'checked' : ''}>
+          <input type="radio" name="target" checked={values.target === 'order'} onChange={() => set('target', 'order')} />
+          An order
+        </label>
+        <label className={values.target === 'stock' ? 'checked' : ''}>
+          <input type="radio" name="target" checked={values.target === 'stock'} onChange={() => set('target', 'stock')} />
+          Studio stock
+        </label>
+      </div>
+
+      {values.target === 'order' && (
+        <>
+          <label htmlFor="order">Which order</label>
+          <select id="order" value={values.orderId} onChange={(e) => set('orderId', e.target.value)} disabled={orders === null}>
+            <option value="">Choose an order…</option>
+            {orders?.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+
+      <label htmlFor="receipt">Receipt photo (optional)</label>
+      <input id="receipt" type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => set('receipt', e.target.files?.[0] ?? null)} />
+      {values.receipt && <p className="form-note">{values.receipt.name}</p>}
+
+      <SaveBar form={form} saveLabel="Submit purchase" savingLabel="Submitting…" requireChanges={false} cleanText="Not saved yet">
+        <button type="button" className="secondary" onClick={onCancel} disabled={form.status === 'saving'}>
+          Cancel
+        </button>
+      </SaveBar>
+    </form>
+  )
+}
+
+function PurchaseRow({ purchase }: { purchase: OwnPurchase }) {
   const [opening, setOpening] = useState(false)
   async function openReceipt() {
     if (!purchase.receipt_path) return
@@ -169,7 +170,7 @@ function PurchaseRow({ purchase, orderName }: { purchase: Purchase; orderName?: 
       </div>
       <div className="log-meta" style={{ marginTop: 4 }}>
         <span>
-          {purchase.for_stock ? 'Studio stock' : (orderName ?? 'An order')} · {formatStamp(purchase.created_at)}
+          {purchase.for_stock ? 'Studio stock' : (purchase.order?.name ?? 'An order')} · {formatStamp(purchase.created_at)}
         </span>
         <PurchaseBadge status={purchase.status} />
       </div>

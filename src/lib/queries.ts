@@ -16,17 +16,18 @@ import type {
   Purchase,
 } from './types.ts'
 
-const ORDER_COLUMNS =
+export const ORDER_COLUMNS =
   'id, name, design_id, bottles_ordered, dabbers_ordered, due_date, primary_artist_id, status, ' +
-  'spec_dimensions, spec_colors_finishes, spec_instructions, finished_by, finished_at, created_at'
+  'spec_dimensions, spec_colors_finishes, spec_instructions, finished_by, finished_at, ' +
+  'packing_note, box_length, box_width, box_height, box_weight, created_at'
 
-const DESIGN_COLUMNS =
+export const DESIGN_COLUMNS =
   'id, name, product_image_path, dimensions, colors_finishes, instructions, has_dabber, is_fumed, active'
 
 const ENTRY_COLUMNS =
   'id, order_id, artist_id, work_date, bottles, dabbers, points, color_tube_preps, blanks, fuming, note, created_at, edited_by, edited_at'
 
-function check<T>(result: { data: T | null; error: { message: string } | null }): T {
+export function check<T>(result: { data: T | null; error: { message: string } | null }): T {
   if (result.error) throw new Error(result.error.message)
   if (result.data === null) throw new Error('No data returned')
   return result.data
@@ -63,6 +64,22 @@ export async function loadOrder(orderId: string): Promise<OrderWithDesign | null
     .maybeSingle()
   if (error) throw new Error(error.message)
   return (data as unknown as OrderWithDesign | null) ?? null
+}
+
+/** Anyone signed in may mark an open order Finished; who and when are recorded. */
+export async function finishOrder(
+  orderId: string,
+  details: { packingNote: string | null; boxLength: number | null; boxWidth: number | null; boxHeight: number | null; boxWeight: number | null },
+): Promise<void> {
+  const { error } = await supabase.rpc('finish_order', {
+    p_order_id: orderId,
+    p_packing_note: details.packingNote,
+    p_box_length: details.boxLength,
+    p_box_width: details.boxWidth,
+    p_box_height: details.boxHeight,
+    p_box_weight: details.boxWeight,
+  })
+  if (error) throw new Error(friendlyDbMessage(error.message))
 }
 
 /** Orders the person has logged an entry on since `sinceDate`, most recent first. */
@@ -275,14 +292,19 @@ export function friendlyDbMessage(message: string): string {
 // --- Purchases --------------------------------------------------------------
 
 const PURCHASE_COLUMNS =
-  'id, artist_id, order_id, for_stock, description, amount, receipt_path, status, decided_at, decision_reason, created_at'
+  'id, artist_id, order_id, for_stock, description, amount, receipt_path, status, decided_at, decision_reason, created_at, order:orders(name)'
+
+/** A person's own submission, with the order's name even after that order closes. */
+export interface OwnPurchase extends Purchase {
+  order: { name: string } | null
+}
 
 /** The signed-in person's own submissions (row-level security hides everyone else's). */
-export async function loadOwnPurchases(artistId: string): Promise<Purchase[]> {
+export async function loadOwnPurchases(artistId: string): Promise<OwnPurchase[]> {
   const rows = check(
     await supabase.from('purchases').select(PURCHASE_COLUMNS).eq('artist_id', artistId).order('created_at', { ascending: false }),
   )
-  return rows as Purchase[]
+  return rows as unknown as OwnPurchase[]
 }
 
 export interface PurchaseInput {
@@ -314,6 +336,17 @@ export async function submitPurchase(input: PurchaseInput): Promise<void> {
     receipt_path,
   })
   if (error) throw new Error(friendlyDbMessage(error.message))
+  window.dispatchEvent(new Event(PURCHASES_CHANGED))
+}
+
+/** Fired when a purchase is submitted or decided, so the menu's count stays right. */
+export const PURCHASES_CHANGED = 'purchases-changed'
+
+/** Purchases waiting for a decision.  Null when the count cannot be read. */
+export async function countPendingPurchases(): Promise<number | null> {
+  const { count, error } = await supabase.from('purchases').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+  if (error) return null
+  return count ?? 0
 }
 
 export type { Design, Order }

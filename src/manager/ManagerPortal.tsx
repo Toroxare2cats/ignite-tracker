@@ -1,0 +1,38 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import OrdersScreen from './OrdersScreen.tsx'
+import OrderFormScreen from './OrderFormScreen.tsx'
+import ManageOrderScreen from './ManageOrderScreen.tsx'
+import DesignsScreen from './DesignsScreen.tsx'
+import NewDesignScreen from './NewDesignScreen.tsx'
+import DesignScreen from './DesignScreen.tsx'
+import PeopleScreen from './PeopleScreen.tsx'
+import NewPersonScreen from './NewPersonScreen.tsx'
+import PersonScreen from './PersonScreen.tsx'
+import ApprovalsScreen from './ApprovalsScreen.tsx'
+import SettingsScreen from './SettingsScreen.tsx'
+
+/**
+ * The manager portal's screens.  This file and everything it imports load only
+ * for managers, so artists' phones never download them.  That is about speed,
+ * not privacy: the database enforces who can read what.
+ */
+export default function ManagerPortal() {
+  return (
+    <Routes>
+      <Route index element={<Navigate to="orders" replace />} />
+      <Route path="orders" element={<OrdersScreen />} />
+      <Route path="orders/new" element={<OrderFormScreen />} />
+      <Route path="orders/:orderId" element={<ManageOrderScreen />} />
+      <Route path="orders/:orderId/edit" element={<OrderFormScreen />} />
+      <Route path="designs" element={<DesignsScreen />} />
+      <Route path="designs/new" element={<NewDesignScreen />} />
+      <Route path="designs/:designId" element={<DesignScreen />} />
+      <Route path="people" element={<PeopleScreen />} />
+      <Route path="people/new" element={<NewPersonScreen />} />
+      <Route path="people/:personId" element={<PersonScreen />} />
+      <Route path="approvals" element={<ApprovalsScreen />} />
+      <Route path="settings" element={<SettingsScreen />} />
+      <Route path="*" element={<Navigate to="orders" replace />} />
+    </Routes>
+  )
+}

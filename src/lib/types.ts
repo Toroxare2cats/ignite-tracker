@@ -42,7 +42,26 @@ export interface Order {
   spec_instructions: string | null
   finished_by: string | null
   finished_at: string | null
+  packing_note: string | null
+  box_length: number | null
+  box_width: number | null
+  box_height: number | null
+  box_weight: number | null
   created_at: string
+}
+
+/** The box size and weight for the shipping label, or null if none was recorded. */
+export function boxText(box: {
+  box_length?: number | null
+  box_width?: number | null
+  box_height?: number | null
+  box_weight?: number | null
+}): string | null {
+  const { box_length: l, box_width: w, box_height: h, box_weight: weight } = box
+  const parts: string[] = []
+  if ((l ?? w ?? h ?? null) !== null) parts.push(`${l ?? '?'} × ${w ?? '?'} × ${h ?? '?'} in`)
+  if ((weight ?? null) !== null) parts.push(`${weight} lb`)
+  return parts.length > 0 ? parts.join(', ') : null
 }
 
 /** An order with its design embedded (orders.design_id -> designs). */

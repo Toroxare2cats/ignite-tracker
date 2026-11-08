@@ -14,6 +14,8 @@ import {
 } from '../lib/queries.ts'
 import { describeCounts, type Counts, type EntryWithTime, type OrderWithDesign, type Person } from '../lib/types.ts'
 import { BackLink, ErrorNote, Loading } from '../components/ui.tsx'
+import { SaveStatusLine } from '../components/form.tsx'
+import { useUnsavedWarning } from '../lib/useFormState.ts'
 
 /** Quick totals, in minutes.  Every one is a multiple of 15. */
 const CHIPS = [15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 480]
@@ -99,6 +101,16 @@ function EntryForm({ loaded, meId, isManager }: { loaded: Loaded; meId: string; 
   const [savedId, setSavedId] = useState<string | null>(entry?.id ?? null)
   const [savedSummary, setSavedSummary] = useState<string[]>([])
 
+  const current = JSON.stringify({ workDate, counts, minutes, note })
+  const [baseline] = useState(current)
+  const dirty = current !== baseline
+  useUnsavedWarning(dirty && phase !== 'saved')
+
+  // Managers can change a design's options after work is logged, so a count
+  // already on this entry stays visible and saved even if the option is now off.
+  const showDabbers = design.has_dabber || (entry?.dabbers ?? null) !== null
+  const showFuming = design.is_fumed || (entry?.fuming ?? null) !== null
+
   const closed = order.status === 'closed'
   const inWindow = isManager || withinEditWindow(entry?.work_date ?? workDate)
   const locked = closed || (editing && !inWindow)
@@ -147,8 +159,8 @@ function EntryForm({ loaded, meId, isManager }: { loaded: Loaded; meId: string; 
       const raw = counts[key].trim()
       out[key] = raw === '' ? null : Number(raw)
     }
-    if (!design.has_dabber) out.dabbers = null
-    if (!design.is_fumed) out.fuming = null
+    if (!showDabbers) out.dabbers = null
+    if (!showFuming) out.fuming = null
     return out
   }
 
@@ -273,7 +285,7 @@ function EntryForm({ loaded, meId, isManager }: { loaded: Loaded; meId: string; 
           <h2>What you made</h2>
           <div className="count-grid">
             <CountField id="bottles" label="Bottles completed" value={counts.bottles} onChange={(v) => setCount('bottles', v)} onBump={(d) => bump('bottles', d)} />
-            {design.has_dabber && (
+            {showDabbers && (
               <CountField id="dabbers" label="Dabbers completed" value={counts.dabbers} onChange={(v) => setCount('dabbers', v)} onBump={(d) => bump('dabbers', d)} />
             )}
           </div>
@@ -293,7 +305,7 @@ function EntryForm({ loaded, meId, isManager }: { loaded: Loaded; meId: string; 
             </div>
           </details>
 
-          {design.is_fumed && (
+          {showFuming && (
             <div className="count-grid" style={{ marginTop: 16 }}>
               <CountField id="fuming" label="Fuming completed" value={counts.fuming} onChange={(v) => setCount('fuming', v)} onBump={(d) => bump('fuming', d)} />
             </div>
@@ -364,9 +376,17 @@ function EntryForm({ loaded, meId, isManager }: { loaded: Loaded; meId: string; 
         )}
 
         {!locked && (
-          <button type="submit" className="btn block big" disabled={busy}>
-            {phase === 'saving' ? 'Saving…' : editing ? 'Save changes' : 'Save entry'}
-          </button>
+          <>
+            <div className="entry-status">
+              <SaveStatusLine
+                form={{ status: phase === 'saving' ? 'saving' : 'idle', error: null, dirty, savedAt: null }}
+                cleanText={editing ? 'No changes yet' : 'Not saved yet'}
+              />
+            </div>
+            <button type="submit" className="btn block big" disabled={busy}>
+              {phase === 'saving' ? 'Saving…' : editing ? 'Save changes' : 'Save entry'}
+            </button>
+          </>
         )}
 
         {editing && !locked && !confirmDelete && (

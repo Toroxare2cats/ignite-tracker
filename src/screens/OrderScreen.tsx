@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useProfile } from '../lib/useProfile.ts'
 import { useAsync } from '../lib/useAsync.ts'
@@ -10,8 +11,9 @@ import {
   signedUrl,
   signedUrls,
 } from '../lib/queries.ts'
-import { COUNT_FIELDS, describeCounts, type Counts, type DesignPhoto, type EntryWithTime, type OrderWithDesign, type Person } from '../lib/types.ts'
+import { boxText, COUNT_FIELDS, describeCounts, type Counts, type DesignPhoto, type EntryWithTime, type OrderWithDesign, type Person } from '../lib/types.ts'
 import { BackLink, DueDate, ErrorNote, Loading, StatusBadge } from '../components/ui.tsx'
+import FinishOrderForm from '../components/FinishOrderForm.tsx'
 
 interface Data {
   order: OrderWithDesign | null
@@ -23,12 +25,14 @@ interface Data {
 }
 
 /**
- * Order: what it is, the Resources for making it, the shared work log, and
- * the button that starts today's entry.
+ * Order: what it is, the Resources for making it, the shared work log, the
+ * button that starts today's entry, and Mark Finished for any artist or manager.
  */
 export default function OrderScreen() {
   const { orderId = '' } = useParams()
   const profile = useProfile()
+  const [finishing, setFinishing] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const { state, reload } = useAsync<Data>(async () => {
     const order = await loadOrder(orderId)
@@ -80,6 +84,7 @@ export default function OrderScreen() {
   const finisher = order.finished_by ? people.get(order.finished_by)?.full_name : null
   const closed = order.status === 'closed'
   const hasResources = Boolean(order.spec_dimensions || order.spec_colors_finishes || order.spec_instructions || photos.length)
+  const box = boxText(order)
 
   return (
     <>
@@ -88,6 +93,14 @@ export default function OrderScreen() {
         <h1>{order.name}</h1>
         <StatusBadge status={order.status} />
       </div>
+
+      {notice && <p className="notice">{notice}</p>}
+
+      {profile.role === 'manager' && (
+        <p className="small" style={{ margin: '8px 0 0' }}>
+          <Link to={`/manage/orders/${order.id}`}>Manage this order</Link>
+        </p>
+      )}
 
       {imageUrl && <img className="product-image" src={imageUrl} alt={`${design.name} product`} />}
 
@@ -114,6 +127,18 @@ export default function OrderScreen() {
               </dd>
             </>
           )}
+          {order.packing_note && (
+            <>
+              <dt>Packing note</dt>
+              <dd className="spec">{order.packing_note}</dd>
+            </>
+          )}
+          {box && (
+            <>
+              <dt>Box</dt>
+              <dd>{box}</dd>
+            </>
+          )}
         </dl>
       </div>
 
@@ -123,6 +148,31 @@ export default function OrderScreen() {
         <Link to={myToday ? `/entries/${myToday.id}` : `/orders/${order.id}/entry`} className="btn block big cta">
           {myToday ? "Edit today's entry" : "Add today's entry"}
         </Link>
+      )}
+
+      {order.status === 'open' && !finishing && (
+        <button
+          type="button"
+          className="secondary block"
+          style={{ marginTop: 10 }}
+          onClick={() => {
+            setNotice(null)
+            setFinishing(true)
+          }}
+        >
+          Mark Finished
+        </button>
+      )}
+      {order.status === 'open' && finishing && (
+        <FinishOrderForm
+          orderId={order.id}
+          onCancel={() => setFinishing(false)}
+          onDone={() => {
+            setFinishing(false)
+            setNotice('Order marked Finished. You can still add entries, for example for packing.')
+            reload()
+          }}
+        />
       )}
 
       <details className="resources">

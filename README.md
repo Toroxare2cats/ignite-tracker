@@ -18,6 +18,7 @@ on each order each day; managers price designs from real costs.
 | `npm run ui-test` | Playwright screen tests in a phone-sized browser (needs `npx playwright install chromium` once) |
 | `npm run seed` | Create the seed accounts, designs and orders |
 | `npm run db:push` | Apply migrations to the linked Supabase project |
+| `npx supabase functions deploy manage-account --project-ref <ref> --use-api` | Deploy the account function that creates logins and sets passwords (managers only) |
 
 ## Setup
 

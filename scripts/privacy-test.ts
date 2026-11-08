@@ -221,6 +221,17 @@ async function signIn(label: string, email: string, password: string): Promise<{
 // Main
 // ---------------------------------------------------------------------------
 
+/** Calls the manage-account function directly and returns the HTTP status. */
+async function callAccountFunction(token: string, body: unknown): Promise<number> {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-account`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  await response.body?.cancel()
+  return response.status
+}
+
 async function main(): Promise<number> {
   console.log(`Privacy test against ${SUPABASE_URL}\n`)
 
@@ -247,10 +258,12 @@ async function main(): Promise<number> {
   // Fixture ids, filled in as they are created, used again for cleanup.
   const fx: {
     designId?: string
+    designPhotoPath?: string
     orderId?: string
     managerEntryId?: string
     artistEntryId?: string
     purchaseId?: string
+    artistPurchaseId?: string
     importId?: string
     ignoredEmail?: string
     managerTaskId?: string
@@ -346,6 +359,10 @@ async function main(): Promise<number> {
         .select('id').single())
     fx.pushId = push.id
 
+    fx.designPhotoPath = `${fx.designId}/privacy-test-${runId}.png`
+    await must('upload design photo', () =>
+      mgr.storage.from('design-photos').upload(fx.designPhotoPath!, new Blob(['fixture photo'], { type: 'image/png' })))
+
     fx.managerReceiptPath = `${manager.id}/privacy-test-${runId}.txt`
     await must('upload manager receipt', () =>
       mgr.storage.from('receipts').upload(fx.managerReceiptPath!, new Blob(['fixture receipt'], { type: 'text/plain' })))
@@ -426,6 +443,46 @@ async function main(): Promise<number> {
     await expectDenied('artist reads calendar_events (none matched to them)', () => art.from('calendar_events').select('*'))
     await expectDenied('artist reads calendar_attendees (none are theirs)', () => art.from('calendar_attendees').select('*'))
 
+    console.log('\n--- Purchases and stock ---')
+    const ownPurchase = await expectAllowed('artist submits a purchase', () =>
+      art.from('purchases')
+        .insert({ artist_id: artist.id, for_stock: true, description: `Privacy test artist purchase ${runId}`, amount: 12 })
+        .select('id').single())
+    fx.artistPurchaseId = (ownPurchase as { id?: string } | null)?.id
+    await expectDenied('artist submits a purchase already marked approved', () =>
+      art.from('purchases')
+        .insert({ artist_id: artist.id, for_stock: true, description: `Privacy test forged ${runId}`, amount: 1, status: 'approved' })
+        .select())
+    await expectDenied("artist submits a purchase in another person's name", () =>
+      art.from('purchases')
+        .insert({ artist_id: manager.id, for_stock: true, description: `Privacy test forged ${runId}`, amount: 1 })
+        .select())
+    await expectDenied('artist reads the stock list', () =>
+      art.from('purchases').select('*').eq('for_stock', true).neq('artist_id', artist.id))
+    await expectDenied('artist allocates stock to an order', () =>
+      art.from('stock_allocations').insert({ purchase_id: fx.purchaseId, order_id: fx.orderId, amount: 1 }).select())
+    await expectDenied('artist removes a stock allocation', () =>
+      art.from('stock_allocations').delete().eq('order_id', fx.orderId!).select())
+    if (fx.artistPurchaseId) {
+      await expectDenied('artist approves their own purchase', () =>
+        art.from('purchases').update({ status: 'approved' }).eq('id', fx.artistPurchaseId!).select())
+      await expectDenied('artist writes a decision reason on their own purchase', () =>
+        art.from('purchases').update({ decision_reason: 'approved by me' }).eq('id', fx.artistPurchaseId!).select())
+      const { data: stillPending } = await art.from('purchases').select('status').eq('id', fx.artistPurchaseId).maybeSingle()
+      record('own purchase is still pending after the attempts', stillPending?.status === 'pending', `status = ${stillPending?.status}`)
+
+      await expectAllowed('manager approves the purchase', () =>
+        mgr.from('purchases').update({ status: 'approved' }).eq('id', fx.artistPurchaseId!).select())
+      await expectDenied('artist changes the amount after approval', () =>
+        art.from('purchases').update({ amount: 999 }).eq('id', fx.artistPurchaseId!).select())
+      await expectDenied('artist deletes a purchase after approval', () =>
+        art.from('purchases').delete().eq('id', fx.artistPurchaseId!).select())
+      await expectDenied('a manager cannot change a decided purchase', () =>
+        mgr.from('purchases').update({ amount: 999 }).eq('id', fx.artistPurchaseId!).select())
+      await expectDenied('a manager cannot overturn a decided purchase', () =>
+        mgr.from('purchases').update({ status: 'rejected', decision_reason: 'privacy test' }).eq('id', fx.artistPurchaseId!).select())
+    }
+
     console.log('\n--- Artist: tasks not assigned to them ---')
     await expectDenied('artist reads a task assigned to someone else', () =>
       art.from('tasks').select('*').eq('id', fx.managerTaskId!))
@@ -462,6 +519,20 @@ async function main(): Promise<number> {
       art.from('orders').insert({ name: 'intruder order', design_id: fx.designId }).select())
     await expectDenied('artist creates a design', () =>
       art.from('designs').insert({ name: `intruder design ${runId}` }).select())
+    await expectDenied('artist edits a design', () =>
+      art.from('designs').update({ name: `intruder design ${runId}` }).eq('id', fx.designId!).select())
+    await expectDenied('artist adds a reference photo record', () =>
+      art.from('design_photos').insert({ design_id: fx.designId, storage_path: `${fx.designId}/intruder-${runId}.png` }).select())
+    await expectDenied('artist uploads to design photos', () =>
+      art.storage.from('design-photos').upload(`${fx.designId}/intruder-${runId}.png`, new Blob(['x'], { type: 'image/png' })))
+    await expectAllowed('artist views a design photo (Resources)', () => art.storage.from('design-photos').download(fx.designPhotoPath!))
+    {
+      // A refused delete can look like success, so check the file is still there.
+      await art.storage.from('design-photos').remove([fx.designPhotoPath!])
+      await expectAllowed('design photo survives an artist trying to delete it', () => mgr.storage.from('design-photos').download(fx.designPhotoPath!))
+    }
+    await expectDenied('artist reassigns the primary artist directly', () =>
+      art.from('orders').update({ primary_artist_id: artist.id }).eq('id', fx.orderId!).select())
     await expectDenied('artist edits the shared order status directly', () =>
       art.from('orders').update({ status: 'closed' }).eq('id', fx.orderId!).select())
     await expectDenied("artist edits another person's entry", () =>
@@ -476,7 +547,43 @@ async function main(): Promise<number> {
 
     // Anyone may finish an open order.
     console.log('\n--- Completion flow ---')
+    {
+      // Checks the permission itself, not just the sign-in check inside the
+      // function: finish_order was rebuilt in 20261106000013.
+      const { error } = await newClient().rpc('finish_order', { p_order_id: fx.orderId })
+      record('signed-out visitor has no permission to run finish_order', error?.message.includes('permission denied') === true, error?.message ?? 'no error')
+    }
     await expectAllowed('artist marks the order Finished', () => art.rpc('finish_order', { p_order_id: fx.orderId }))
+
+    console.log('\n--- Accounts ---')
+    await expectDenied('artist adds an alternate email to their own profile', () =>
+      art.from('profiles').update({ alternate_emails: ['someone.else@example.com'] }).eq('id', artist.id).select())
+    await expectDenied("artist changes a manager's landing screen", () =>
+      art.from('profiles').update({ home_screen: 'people' }).eq('id', manager.id).select())
+    await expectDenied('manager cannot deactivate their own account', () =>
+      mgr.from('profiles').update({ active: false }).eq('id', manager.id).select())
+    await expectDenied('manager cannot change their own role', () =>
+      mgr.from('profiles').update({ role: 'artist' }).eq('id', manager.id).select())
+
+    // The account function holds the admin key, so it is tested from outside,
+    // the way an attacker would call it.  A status is checked, not just "an
+    // error", so a function that is missing or broken cannot pass as refused.
+    {
+      const account = { action: 'create', email: `intruder.${runId}@igniteglass.com`, password: 'not-a-real-password', full_name: 'Intruder', role: 'manager' }
+      const artistToken = (await art.auth.getSession()).data.session?.access_token ?? ''
+      const managerToken = (await mgr.auth.getSession()).data.session?.access_token ?? ''
+
+      const signedOut = await callAccountFunction(SUPABASE_ANON_KEY, account)
+      record('signed-out visitor cannot create a login', signedOut === 401, `status ${signedOut}`)
+      const byArtist = await callAccountFunction(artistToken, account)
+      record('artist cannot create a login', byArtist === 403, `status ${byArtist}`)
+      const resetByArtist = await callAccountFunction(artistToken, { action: 'set-password', id: manager.id, password: 'not-a-real-password' })
+      record("artist cannot reset a manager's password", resetByArtist === 403, `status ${resetByArtist}`)
+      const outsideEmail = await callAccountFunction(managerToken, { ...account, email: `intruder.${runId}@gmail.com` })
+      record('manager cannot create a login outside igniteglass.com', outsideEmail === 400, `status ${outsideEmail}`)
+      const { count } = await mgr.from('profiles').select('id', { count: 'exact', head: true }).like('email', `intruder.${runId}%`)
+      record('no login was created by those attempts', count === 0, `${count} found`)
+    }
 
     // -----------------------------------------------------------------------
     // Manager: every denied item above must succeed here
@@ -485,6 +592,10 @@ async function main(): Promise<number> {
     await expectAllowed('manager calls order_cost', () => mgr.rpc('order_cost', { p_order_id: fx.orderId }))
     await expectDenied('manager cannot close without materials cost', () =>
       mgr.rpc('close_order', { p_order_id: fx.orderId, p_bottles_delivered: 60, p_dabbers_delivered: 60, p_selling_price: 300, p_materials_total: null }))
+    await expectDenied('manager cannot close without a selling price', () =>
+      mgr.rpc('close_order', { p_order_id: fx.orderId, p_bottles_delivered: 60, p_dabbers_delivered: 60, p_selling_price: null, p_materials_total: 40 }))
+    await expectDenied('manager cannot close without delivered quantities', () =>
+      mgr.rpc('close_order', { p_order_id: fx.orderId, p_bottles_delivered: null, p_dabbers_delivered: 60, p_selling_price: 300, p_materials_total: 40 }))
     await expectAllowed('manager closes the order (with all required figures)', () =>
       mgr.rpc('close_order', { p_order_id: fx.orderId, p_bottles_delivered: 60, p_dabbers_delivered: 60, p_selling_price: 300, p_materials_total: 40 }))
     await expectAllowed('manager calls design_pricing', () => mgr.rpc('design_pricing', { p_design_id: fx.designId }))
@@ -492,6 +603,12 @@ async function main(): Promise<number> {
       mgr.rpc('artist_design_hours', { p_artist_id: manager.id, p_design_id: fx.designId }))
     await expectDenied('artist reads order_financials after close', () =>
       art.from('order_financials').select('*').eq('order_id', fx.orderId!))
+    if (fx.artistEntryId) {
+      await expectDenied('artist changes own hours on a closed order', () =>
+        art.from('entry_time').update({ minutes: 1 }).eq('entry_id', fx.artistEntryId!).select())
+      const { data: kept } = await art.from('entry_time').select('minutes').eq('entry_id', fx.artistEntryId!).maybeSingle()
+      record('hours on a closed order are unchanged after the attempt', kept?.minutes === 180, `minutes = ${kept?.minutes}`)
+    }
     await expectAllowed('manager reopens the order', () => mgr.rpc('reopen_order', { p_order_id: fx.orderId, p_reason: 'privacy test' }))
     await expectDenied('artist reads order_financial_history after reopen', () =>
       art.from('order_financial_history').select('*').eq('order_id', fx.orderId!))
@@ -573,6 +690,19 @@ async function main(): Promise<number> {
         }
       }
     }
+    // Deactivation is checked last, and the test artist is always switched back on.
+    console.log('\n--- Deactivated account ---')
+    await must('deactivate the test artist', () => mgr.from('profiles').update({ active: false }).eq('id', artist.id).select('id').single())
+    try {
+      await expectDenied('deactivated artist reads orders', () => art.from('orders').select('id').limit(1))
+      await expectDenied('deactivated artist reads designs', () => art.from('designs').select('id').limit(1))
+      await expectDenied('deactivated artist reads the people list', () => art.from('people').select('id').limit(1))
+      await expectDenied('deactivated account gets no new pay rate', () =>
+        mgr.from('pay_rates').insert({ profile_id: artist.id, hourly_rate: 1, effective_from: '2001-01-01' }).select())
+    } finally {
+      await must('reactivate the test artist', () => mgr.from('profiles').update({ active: true }).eq('id', artist.id).select('id').single())
+    }
+    await expectAllowed('reactivated artist reads orders again', () => art.from('orders').select('id').limit(1))
   } finally {
     // -----------------------------------------------------------------------
     // Cleanup (as the manager), best effort, reporting anything left behind
@@ -594,7 +724,9 @@ async function main(): Promise<number> {
       await tidy('entries', () => mgr.from('entries').delete().eq('order_id', fx.orderId!))
       await tidy('stock_allocations', () => mgr.from('stock_allocations').delete().eq('order_id', fx.orderId!))
     }
-    if (fx.purchaseId) await tidy('purchase', () => mgr.from('purchases').delete().eq('id', fx.purchaseId!))
+    for (const id of [fx.purchaseId, fx.artistPurchaseId]) {
+      if (id) await tidy('purchase', () => mgr.from('purchases').delete().eq('id', id))
+    }
     if (fx.importId) {
       await tidy('uattend_days', () => mgr.from('uattend_days').delete().eq('import_id', fx.importId!))
       await tidy('uattend_import', () => mgr.from('uattend_imports').delete().eq('id', fx.importId!))
@@ -610,6 +742,7 @@ async function main(): Promise<number> {
     if (fx.pushId) await tidy('push subscription', () => mgr.from('push_subscriptions').delete().eq('id', fx.pushId!))
     const paths = [fx.managerReceiptPath, fx.artistReceiptPath, `${manager.id}/intruder-${runId}.txt`].filter((p): p is string => Boolean(p))
     if (paths.length) await tidy('receipt files', () => mgr.storage.from('receipts').remove(paths))
+    if (fx.designPhotoPath) await tidy('design photo', () => mgr.storage.from('design-photos').remove([fx.designPhotoPath!, `${fx.designId}/intruder-${runId}.png`]))
     if (fx.orderId) await tidy('order', () => mgr.from('orders').delete().eq('id', fx.orderId!))
     if (fx.designId) await tidy('design', () => mgr.from('designs').delete().eq('id', fx.designId!))
 

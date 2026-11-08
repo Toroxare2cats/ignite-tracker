@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { resetToFrontDoor } from './landing.ts'
 import { supabase } from './supabase.ts'
 
 /**
@@ -19,7 +20,8 @@ export function useSession(): { session: Session | null; loading: boolean } {
       setLoading(false)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'SIGNED_OUT') resetToFrontDoor()
       setSession(next)
       setLoading(false)
     })

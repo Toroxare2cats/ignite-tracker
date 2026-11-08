@@ -29,3 +29,6 @@ Thumbs.db
 # Test output
 test-results/
 playwright-report/
+
+# Real uAttend exports (real names and clocked hours); the import was built from them
+docs/samples/

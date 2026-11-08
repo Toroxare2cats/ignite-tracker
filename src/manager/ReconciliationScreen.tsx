@@ -167,7 +167,13 @@ function Report({ report }: { report: WeekReport }) {
 
 function PersonDays({ week, report, today }: { week: PersonWeek; report: WeekReport; today: string }) {
   const [open, setOpen] = useState<string | null>(null)
-  const quiet = week.totals.clocked === 0 && week.totals.order === 0 && week.totals.studio === 0 && week.totals.calendarCounted === 0 && week.missingDays === 0
+  const imported = week.days.some((d) => d.imported)
+  const quiet =
+    (week.totals.clocked === 0 || !imported) &&
+    week.totals.order === 0 &&
+    week.totals.studio === 0 &&
+    week.totals.calendarCounted === 0 &&
+    week.missingDays === 0
   return (
     <section className="card person-days" id={`person-${week.person.id}`} aria-label={`${week.person.full_name}, day by day`}>
       <div className="topbar" style={{ marginBottom: 4 }}>
@@ -178,7 +184,7 @@ function PersonDays({ week, report, today }: { week: PersonWeek; report: WeekRep
       </div>
       {quiet ? (
         <p className="muted small" style={{ margin: 0 }}>
-          Nothing clocked or logged this week.
+          {imported ? 'Nothing clocked or logged this week.' : 'No uAttend hours imported and nothing logged this week.'}
         </p>
       ) : (
         <table className="table days-table">

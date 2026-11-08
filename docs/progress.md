@@ -145,7 +145,7 @@ Done-when from the plan: create a real design and order, approve a test purchase
 - `npx tsc -b` and `npx oxlint`: no errors.
 - `npm run build`: builds. The main file is 527 kB; the manager portal is a separate 72 kB file.
 - `npm run test`: privacy test 165 of 165, signed in as the real test artist, then all 28 screen tests passed (2.3 minutes).
-- Live site: to be confirmed after the push.
+- Live site: https://ignite-tracker.pages.dev serves this version (commit `24856aa`), checked 2026-11-07 within a minute of the push. The app file Cloudflare built is byte-for-byte the one tested here, and the manager portal file, manifest and service worker all load. Nobody has signed in on the live site since this deploy yet.
 - Not tried yet: the manager screens on a real phone, real receipt photos from an iPhone, and signing in as Amelia to see her landing screen.
 
 ### Decisions made during the session

@@ -222,7 +222,7 @@ Done-when from the plan: upload a real uAttend week and see clocked, logged and 
 - `npm run build`: builds. The main file is 529 kB; the manager portal is a separate 144 kB file (it was 72 kB before this session's screens).
 - `npm run test`: privacy test 172 of 172, signed in as the real test artist, then all 37 screen tests passed (2.7 minutes). Run after step 7, with no code changes afterwards.
 - By hand, on the local preview (2026-11-07), Arvin uploaded the real uAttend Timecard Report for Nov 1–7, 2026: the preview showed the four known people suggested and the seven unknown names to skip; after saving, Reconciliation for that week showed, for example, Freddy at 27h 46m clocked, 1h on orders and 26h 46m unexplained with four days flagged "No entry", Joey at 43h 44m clocked with five days flagged, and Arvin's four days without a clock-out as "Missing punch" rather than 0. Arvin checked each report in the browser pane as it was built and approved each step.
-- Live site: see the deploy note below.
+- Live site: https://ignite-tracker.pages.dev serves this version (commit `2780cc0`), checked 2026-11-07 a few minutes after the push. The main app file, the manager portal file, the stylesheet and the manifest Cloudflare built are byte-for-byte the ones tested here; the service worker differs only in the order of two entries in its file list. The push itself was made from Arvin's terminal, because the app's permission check refused Claude Code's own push to the live site.
 
 ### Decisions made during the session
 

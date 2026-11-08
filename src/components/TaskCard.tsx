@@ -2,18 +2,7 @@ import { type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { formatShortDate, formatStamp, todayChicago } from '../lib/dates.ts'
 import type { Person } from '../lib/types.ts'
-import { isOverdue, PRIORITY_LABEL, RECURRENCE_LABEL, type Task } from '../lib/tasks.ts'
-
-/** "Joey", "Joey and Freddy", "Joey, Freddy and Ben" */
-export function nameList(names: string[]): string {
-  if (names.length <= 1) return names.join('')
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
-}
-
-export function personName(people: Map<string, Person>, id: string | null): string {
-  if (!id) return 'Someone'
-  return people.get(id)?.full_name ?? 'Someone'
-}
+import { isOverdue, nameList, personName, PRIORITY_LABEL, RECURRENCE_LABEL, type Task } from '../lib/tasks.ts'
 
 /** Overdue, due today, a date, or no date. */
 export function TaskDue({ task }: { task: Pick<Task, 'status' | 'due_date'> }) {
@@ -39,6 +28,7 @@ export function TaskCard({
   viewerId,
   onDone,
   doneBusy = false,
+  allAssignees = false,
   children,
 }: {
   task: Task
@@ -46,9 +36,11 @@ export function TaskCard({
   viewerId: string
   onDone?: (task: Task) => void
   doneBusy?: boolean
+  /** List everyone by name (the managers' Everyone view), even when the viewer is on it. */
+  allAssignees?: boolean
   children?: ReactNode
 }) {
-  const mine = task.assignees.includes(viewerId)
+  const mine = !allAssignees && task.assignees.includes(viewerId)
   const others = task.assignees
     .filter((id) => id !== viewerId)
     .map((id) => personName(people, id))

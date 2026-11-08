@@ -19,6 +19,7 @@ import OrderCostScreen from './OrderCostScreen.tsx'
 import DesignPricingScreen from './DesignPricingScreen.tsx'
 import ArtistWeekScreen from './ArtistWeekScreen.tsx'
 import ArtistByDesignScreen from './ArtistByDesignScreen.tsx'
+import TaskFormScreen from './TaskFormScreen.tsx'
 
 /**
  * The manager portal's screens.  This file and everything it imports load only
@@ -30,6 +31,10 @@ export default function ManagerPortal() {
     <Routes>
       <Route index element={<Navigate to="dashboard" replace />} />
       <Route path="dashboard" element={<TodayScreen />} />
+      <Route path="tasks" element={<Navigate to="/tasks?view=everyone" replace />} />
+      <Route path="tasks/new" element={<TaskFormScreen mode="new" />} />
+      <Route path="tasks/approve/:itemId" element={<TaskFormScreen mode="approve" />} />
+      <Route path="tasks/:taskId" element={<TaskFormScreen mode="edit" />} />
       <Route path="orders" element={<OrdersScreen />} />
       <Route path="orders/new" element={<OrderFormScreen />} />
       <Route path="orders/:orderId" element={<ManageOrderScreen />} />

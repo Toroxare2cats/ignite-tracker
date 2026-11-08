@@ -195,7 +195,100 @@ export async function deletePersonalItem(itemId: string): Promise<void> {
 export function taskMessage(message: string): string {
   if (/already done/i.test(message)) return 'Someone already marked this task done. The list has been refreshed.'
   if (/only an assignee or a manager/i.test(message)) return 'Only the people this task is assigned to, or a manager, can mark it done.'
+  if (/tasks_one_open_per_series|later occurrence/i.test(message)) return 'Another occurrence of this repeating task is already open. Only one can be open at a time.'
   if (/can no longer be changed/i.test(message)) return 'This item was approved into a task, so it can no longer be changed.'
   if (/row-level security|42501/i.test(message)) return 'Your account is not allowed to make this change.'
   return friendlyDbMessage(message)
+}
+
+// --- Names -----------------------------------------------------------------------
+
+/** "Joey", "Joey and Freddy", "Joey, Freddy and Ben" */
+export function nameList(names: string[]): string {
+  if (names.length <= 1) return names.join('')
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+export function personName(people: Map<string, { full_name: string }>, id: string | null): string {
+  if (!id) return 'Someone'
+  return people.get(id)?.full_name ?? 'Someone'
+}
+
+// --- Manager actions (the database refuses each one for an artist) ----------------
+
+export interface TaskInput {
+  title: string
+  note: string | null
+  priority: TaskPriority
+  due_date: string | null
+  order_id: string | null
+  recurrence: TaskRecurrence | null
+  assignees: string[]
+}
+
+/** Create (taskId null) or edit a task and set exactly who it is assigned to.  Returns the task id. */
+export async function saveTask(taskId: string | null, input: TaskInput): Promise<string> {
+  const { data, error } = await supabase.rpc('save_task', {
+    p_task_id: taskId,
+    p_title: input.title,
+    p_note: input.note,
+    p_priority: input.priority,
+    p_due_date: input.due_date,
+    p_order_id: input.order_id,
+    p_recurrence: input.recurrence,
+    p_assignees: input.assignees,
+  })
+  if (error) throw new Error(taskMessage(error.message))
+  changed()
+  return (data as { id: string }).id
+}
+
+export async function loadTask(taskId: string): Promise<Task | null> {
+  const { data, error } = await supabase.from('tasks').select(TASK_COLUMNS).eq('id', taskId).maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) return null
+  return shape([data as unknown as TaskRow])[0]
+}
+
+export async function reopenTask(taskId: string): Promise<void> {
+  const { error } = await supabase.rpc('reopen_task', { p_task_id: taskId })
+  if (error) throw new Error(taskMessage(error.message))
+  changed()
+}
+
+/** The open occurrence stays; no further ones are made after it. */
+export async function stopRecurrence(taskId: string): Promise<void> {
+  const { error, count } = await supabase.from('tasks').update({ recurrence: null }, { count: 'exact' }).eq('id', taskId)
+  if (error) throw new Error(taskMessage(error.message))
+  if (count === 0) throw new Error('This task could not be changed. It may have been removed.')
+  changed()
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  const { error, count } = await supabase.from('tasks').delete({ count: 'exact' }).eq('id', taskId)
+  if (error) throw new Error(taskMessage(error.message))
+  if (count === 0) throw new Error('This task could not be removed. It may already be gone.')
+  changed()
+}
+
+export async function loadPersonalItem(itemId: string): Promise<PersonalItem | null> {
+  const { data, error } = await supabase.from('personal_items').select(ITEM_COLUMNS).eq('id', itemId).maybeSingle()
+  if (error) throw new Error(error.message)
+  return (data as PersonalItem | null) ?? null
+}
+
+/** Turn a personal item into an assigned task.  Returns the new task's id. */
+export async function approvePersonalItem(
+  itemId: string,
+  input: { assignees: string[]; priority: TaskPriority; due_date: string | null },
+): Promise<string> {
+  const { data, error } = await supabase.rpc('approve_personal_item', {
+    p_item_id: itemId,
+    p_assignees: input.assignees,
+    p_priority: input.priority,
+    p_due_date: input.due_date,
+  })
+  if (error) throw new Error(taskMessage(error.message))
+  changed()
+  return (data as { id: string }).id
 }

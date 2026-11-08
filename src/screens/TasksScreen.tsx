@@ -1,26 +1,33 @@
-import { useState, type FormEvent } from 'react'
+import { lazy, Suspense, useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useProfile } from '../lib/useProfile.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import { loadPeople } from '../lib/queries.ts'
-import { formatShortDate, formatStamp } from '../lib/dates.ts'
+import { formatStamp } from '../lib/dates.ts'
 import type { Person } from '../lib/types.ts'
 import {
   addPersonalItem,
-  completeTask,
   deletePersonalItem,
   loadItemOutcomes,
-  loadNextOccurrence,
   loadOpenTasks,
   loadPersonalItems,
   loadRecentlyDone,
+  nameList,
+  reopenTask,
+  RECURRENCE_LABEL,
   sortTasks,
+  stopRecurrence,
   updatePersonalItem,
   type ItemOutcome,
   type PersonalItem,
   type Task,
 } from '../lib/tasks.ts'
 import { ErrorNote, Loading } from '../components/ui.tsx'
-import { nameList, TaskCard } from '../components/TaskCard.tsx'
+import { TaskCard } from '../components/TaskCard.tsx'
+import { useMarkDone, type TaskMessage } from '../lib/useMarkDone.tsx'
+
+// Managers only; loaded when a manager switches to Everyone.
+const TasksEveryone = lazy(() => import('../manager/TasksEveryone.tsx'))
 
 interface Data {
   open: Task[]
@@ -32,22 +39,139 @@ interface Data {
 
 /**
  * Tasks: the tasks assigned to me (overdue first, then priority, due date,
- * newest), then my own personal list.  Tasks are never part of logging an
- * entry (rule 12).
+ * newest), then my own personal list.  Managers also get Mine / Everyone and
+ * the controls to create, edit, reopen and approve.  Tasks are never part of
+ * logging an entry (rule 12).
  */
 export default function TasksScreen() {
+  const profile = useProfile()
+  const isManager = profile.role === 'manager'
+  const [params, setParams] = useSearchParams()
+  const location = useLocation()
+  const saved = (location.state as { saved?: string } | null)?.saved ?? null
+  const view = isManager && params.get('view') === 'everyone' ? 'everyone' : 'mine'
+
   return (
     <>
-      <h1>Tasks</h1>
-      <MyTasks />
+      <div className="topbar">
+        <h1>Tasks</h1>
+        {isManager && (
+          <Link to="/manage/tasks/new" className="btn">
+            New task
+          </Link>
+        )}
+      </div>
+      {isManager && (
+        <div className="segmented" role="tablist" aria-label="Whose tasks">
+          <button type="button" role="tab" aria-selected={view === 'mine'} className={view === 'mine' ? 'active' : ''} onClick={() => setParams({}, { replace: true })}>
+            Mine
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'everyone'}
+            className={view === 'everyone' ? 'active' : ''}
+            onClick={() => setParams({ view: 'everyone' }, { replace: true })}
+          >
+            Everyone
+          </button>
+        </div>
+      )}
+      {saved && (
+        <p className="notice" role="status" style={{ marginTop: 12 }}>
+          {saved}
+        </p>
+      )}
+      {view === 'everyone' ? (
+        <Suspense fallback={<Loading what="everyone's tasks" />}>
+          <TasksEveryone />
+        </Suspense>
+      ) : (
+        <MyTasks />
+      )}
     </>
+  )
+}
+
+/** A manager's buttons under a task: Edit, Stop repeating, Reopen. */
+export function ManagerTaskActions({
+  task,
+  onChanged,
+  onMessage,
+}: {
+  task: Task
+  onChanged: () => void
+  onMessage: (m: TaskMessage) => void
+}) {
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
+  const [confirmStop, setConfirmStop] = useState(false)
+
+  async function run(action: () => Promise<void>, text: string) {
+    setBusy(true)
+    onMessage(null)
+    try {
+      await action()
+      onMessage({ kind: 'ok', text })
+    } catch (e) {
+      onMessage({ kind: 'warn', text: (e as Error).message })
+    } finally {
+      setBusy(false)
+      setConfirmStop(false)
+      onChanged()
+    }
+  }
+
+  return (
+    <div className="task-actions">
+      <button type="button" className="link small" onClick={() => navigate(`/manage/tasks/${task.id}`)}>
+        Edit
+      </button>
+      {task.status === 'open' && task.recurrence && !confirmStop && (
+        <button type="button" className="link small" onClick={() => setConfirmStop(true)}>
+          Stop repeating
+        </button>
+      )}
+      {confirmStop && task.recurrence && (
+        <>
+          <span className="small">Stop “{RECURRENCE_LABEL[task.recurrence].toLowerCase()}”? This one stays open; none come after it.</span>
+          <button
+            type="button"
+            className="link small danger-text"
+            disabled={busy}
+            onClick={() => void run(() => stopRecurrence(task.id), `“${task.title}” will not repeat any more.`)}
+          >
+            Yes, stop
+          </button>
+          <button type="button" className="link small" onClick={() => setConfirmStop(false)}>
+            Keep repeating
+          </button>
+        </>
+      )}
+      {task.status === 'done' && (
+        <button
+          type="button"
+          className="link small"
+          disabled={busy}
+          onClick={() =>
+            void run(
+              () => reopenTask(task.id),
+              task.recurrence
+                ? `Reopened “${task.title}”. The next occurrence made when it was completed was taken back, so only one is open.`
+                : `Reopened “${task.title}”.`,
+            )
+          }
+        >
+          {busy ? 'Reopening…' : 'Reopen'}
+        </button>
+      )}
+    </div>
   )
 }
 
 function MyTasks() {
   const profile = useProfile()
-  const [busyId, setBusyId] = useState<string | null>(null)
-  const [message, setMessage] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null)
+  const isManager = profile.role === 'manager'
 
   const { state, reload } = useAsync<Data>(async () => {
     const [open, done, people, items, outcomes] = await Promise.all([
@@ -59,26 +183,7 @@ function MyTasks() {
     ])
     return { open, done, people, items, outcomes }
   }, [profile.id])
-
-  async function markDone(task: Task) {
-    if (busyId) return
-    setBusyId(task.id)
-    setMessage(null)
-    try {
-      await completeTask(task.id)
-      let text = `Done: “${task.title}”. It is marked done for everyone on it.`
-      if (task.recurrence) {
-        const next = await loadNextOccurrence(task.id)
-        if (next?.due_date) text += ` The next one is due ${formatShortDate(next.due_date)}.`
-      }
-      setMessage({ kind: 'ok', text })
-    } catch (e) {
-      setMessage({ kind: 'warn', text: (e as Error).message })
-    } finally {
-      setBusyId(null)
-      reload()
-    }
-  }
+  const { markDone, busyId, setMessage, notice } = useMarkDone(reload)
 
   if (state.kind === 'loading') return <Loading what="your tasks" />
   if (state.kind === 'error') return <ErrorNote message={state.message} onRetry={reload} />
@@ -89,17 +194,15 @@ function MyTasks() {
 
   return (
     <>
-      {message && (
-        <p className={message.kind === 'ok' ? 'notice' : 'notice warn'} role="status">
-          {message.text}
-        </p>
-      )}
+      {notice}
 
       <h2>Assigned to you</h2>
       <ul className="list tasks">
         {mine.length === 0 && <li className="empty">Nothing assigned to you right now.</li>}
         {mine.map((t) => (
-          <TaskCard key={t.id} task={t} people={people} viewerId={profile.id} onDone={markDone} doneBusy={busyId === t.id} />
+          <TaskCard key={t.id} task={t} people={people} viewerId={profile.id} onDone={markDone} doneBusy={busyId === t.id}>
+            {isManager && <ManagerTaskActions task={t} onChanged={reload} onMessage={setMessage} />}
+          </TaskCard>
         ))}
       </ul>
 
@@ -108,7 +211,9 @@ function MyTasks() {
           <summary>Done in the last 7 days ({doneMine.length})</summary>
           <ul className="list tasks">
             {doneMine.map((t) => (
-              <TaskCard key={t.id} task={t} people={people} viewerId={profile.id} />
+              <TaskCard key={t.id} task={t} people={people} viewerId={profile.id}>
+                {isManager && <ManagerTaskActions task={t} onChanged={reload} onMessage={setMessage} />}
+              </TaskCard>
             ))}
           </ul>
         </details>
@@ -118,6 +223,7 @@ function MyTasks() {
     </>
   )
 }
+
 
 /** The person's own list: one-line add, edit, delete; approved items show where they went. */
 export function PersonalList({
@@ -200,7 +306,18 @@ export function PersonalList({
   )
 }
 
-function PersonalRow({ item, outcome, onChanged }: { item: PersonalItem; outcome?: ItemOutcome; onChanged: () => void }) {
+/** One personal-list item.  `approveTo` (managers, Everyone view) adds an Approve link. */
+export function PersonalRow({
+  item,
+  outcome,
+  onChanged,
+  approveTo,
+}: {
+  item: PersonalItem
+  outcome?: ItemOutcome
+  onChanged: () => void
+  approveTo?: string
+}) {
   const [mode, setMode] = useState<'view' | 'edit' | 'confirm-delete'>('view')
   const [draft, setDraft] = useState(item.text)
   const [busy, setBusy] = useState(false)
@@ -273,6 +390,11 @@ function PersonalRow({ item, outcome, onChanged }: { item: PersonalItem; outcome
 
       {mode === 'view' && (
         <div className="personal-actions">
+          {approveTo && !approved && (
+            <Link to={approveTo} className="small">
+              Approve as task
+            </Link>
+          )}
           {!approved && (
             <button type="button" className="link small" onClick={() => setMode('edit')}>
               Edit

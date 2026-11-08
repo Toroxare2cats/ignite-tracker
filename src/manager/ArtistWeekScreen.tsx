@@ -8,7 +8,7 @@ import { loadAccounts, type Account } from './queries.ts'
 import { Clocked, DayDetail, DayFlags, Gap, Minutes } from './ReconciliationScreen.tsx'
 import { buildPersonWeek, loadCalendarItems, loadClocked, loadEntriesBetween, loadImportsCovering, loadStudioTime, type ImportCover, type PersonWeek } from './reportQueries.ts'
 import { WeekPicker } from './WeekPicker.tsx'
-import { loadTasksCompletedBy, type Task } from '../lib/tasks.ts'
+import { loadTasksDoneFor, type Task } from '../lib/tasks.ts'
 import { CompletedTasks } from '../components/CompletedTasks.tsx'
 
 interface Data {
@@ -21,7 +21,7 @@ interface Data {
 /**
  * Artist week: one person, one Sunday-to-Saturday week: each day's orders,
  * counts, logged hours, clocked hours (uAttend) and the unexplained gap, with
- * blank days flagged, and the tasks they marked done each day (brief: Reports
+ * blank days flagged, and the tasks done each day that they were on (brief: Reports
  * and views).  Calendar events and studio time fill in with sessions 8 and later.
  * Each activity count is totalled on its own, never added together (rule 3).
  */
@@ -40,7 +40,7 @@ export default function ArtistWeekScreen() {
       loadStudioTime(week.from, week.to, person.id),
       loadCalendarItems(week.from, week.to, person.id),
       loadImportsCovering(week.from, week.to),
-      loadTasksCompletedBy(person.id, week.from, week.to),
+      loadTasksDoneFor(person.id, week.from, week.to),
     ])
     return { accounts, week: buildPersonWeek(person, week.dates, { clocked, entries, studio, calendar }), imports, tasksDone }
   }, [personId, week.from])
@@ -69,7 +69,7 @@ export default function ArtistWeekScreen() {
           </div>
           {personId && !state.data.week && <ErrorNote message="This person does not exist." />}
           {!personId && <p className="muted">Choose a person to see their week.</p>}
-          {state.data.week && <WeekView week={state.data.week} imports={state.data.imports} tasksDone={state.data.tasksDone} from={week.from} to={week.to} />}
+          {state.data.week && <WeekView week={state.data.week} imports={state.data.imports} tasksDone={state.data.tasksDone} accounts={state.data.accounts} from={week.from} to={week.to} />}
         </>
       )}
     </>
@@ -113,15 +113,18 @@ function WeekView({
   week,
   imports,
   tasksDone,
+  accounts,
   from,
   to,
 }: {
   week: PersonWeek
   imports: ImportCover[]
   tasksDone: Map<string, Task[]>
+  accounts: Account[]
   from: string
   to: string
 }) {
+  const people = new Map(accounts.map((a) => [a.id, a]))
   const tasksTotal = [...tasksDone.values()].reduce((n, list) => n + list.length, 0)
   const today = todayChicago()
   const entries = week.days.flatMap((d) => d.entries)
@@ -195,7 +198,7 @@ function WeekView({
           )}
           <p className="form-note" style={{ marginBottom: 0 }}>
             {daysLogged} {daysLogged === 1 ? 'day' : 'days'} logged on {orders.size} {orders.size === 1 ? 'order' : 'orders'}. Each count is its own activity; they are never
-            added together. {tasksTotal} {tasksTotal === 1 ? 'task' : 'tasks'} marked done.
+            added together. {tasksTotal} {tasksTotal === 1 ? 'task' : 'tasks'} done.
           </p>
         </div>
       </div>
@@ -227,7 +230,7 @@ function WeekView({
             ) : (
               <DayDetail day={d} />
             )}
-            <CompletedTasks tasks={tasksDone.get(d.date)} />
+            <CompletedTasks tasks={tasksDone.get(d.date)} personId={week.person.id} people={people} />
           </section>
         ))}
       <p className="form-note">

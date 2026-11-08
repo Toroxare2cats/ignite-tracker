@@ -98,7 +98,7 @@ test('artist: order page shows only my open tasks for it, My Work counts them, M
   await page.goto('/week')
   const today = page.locator('section.day').filter({ hasText: 'Today' })
   await expect(today.getByTestId('tasks-done-day')).toContainText(`Pack order ${run}`)
-  await expect(page.getByText(/\d+ tasks? marked done/)).toBeVisible()
+  await expect(page.getByText(/\d+ tasks? done/)).toBeVisible()
   await shot(page, '58-my-week-tasks')
 })
 
@@ -123,6 +123,10 @@ test.describe('manager', () => {
     const doneId = await saveTask(mgr, `Done by manager ${run}`, [managerId])
     const { error } = await mgr.rpc('complete_task', { p_task_id: doneId })
     if (error) throw new Error(error.message)
+    // Shared, ticked off by the manager: it counts in both people's weeks (Arvin, 2026-11-08).
+    const sharedId = await saveTask(mgr, `Shared done ${run}`, [managerId, artistId])
+    const { error: sErr } = await mgr.rpc('complete_task', { p_task_id: sharedId })
+    if (sErr) throw new Error(sErr.message)
 
     await signInAsManager(page)
     await page.goto('/manage/dashboard')
@@ -145,7 +149,16 @@ test.describe('manager', () => {
     await page.getByLabel('Person').selectOption({ label: 'Test Manager' })
     const day = page.locator('section.day-card').filter({ has: page.getByTestId('tasks-done-day') }).filter({ hasText: `Done by manager ${run}` })
     await expect(day).toBeVisible()
-    await expect(page.getByTestId('week-counts')).toContainText(/\d+ tasks? marked done/)
+    await expect(page.getByTestId('week-counts')).toContainText(/\d+ tasks? done/)
+    const sharedLine = page.getByTestId('tasks-done-day').getByRole('listitem').filter({ hasText: `Shared done ${run}` })
+    await expect(sharedLine).toBeVisible()
+    await expect(sharedLine).not.toContainText('done by') // the manager ticked it off themselves
     await shot(page, '60-artist-week-tasks')
+
+    await page.getByLabel('Person').selectOption({ label: 'Test Artist' })
+    const artistLine = page.getByTestId('tasks-done-day').getByRole('listitem').filter({ hasText: `Shared done ${run}` })
+    await expect(artistLine).toContainText('done by Test Manager')
+    await expect(page.getByTestId('tasks-done-day').getByText(`Done by manager ${run}`)).toHaveCount(0) // not on it
+    await shot(page, '61-artist-week-shared-task')
   })
 })

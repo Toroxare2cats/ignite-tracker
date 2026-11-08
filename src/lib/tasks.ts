@@ -280,23 +280,40 @@ export async function approvePersonalItem(
 }
 
 /**
- * Tasks a person marked done between two dates (inclusive, Chicago calendar
- * days), keyed by the day they did it.  Used by My Week and Artist week.
+ * Tasks done between two dates (inclusive, Chicago calendar days) that count
+ * in one person's week, keyed by the day they were done: every task the person
+ * was assigned to (whoever ticked it off; it is done for everyone on it,
+ * Arvin 2026-11-08), plus any task they ticked off themselves.  Used by My
+ * Week and Artist week.
  */
-export async function loadTasksCompletedBy(personId: string, from: string, to: string): Promise<Map<string, Task[]>> {
+export async function loadTasksDoneFor(personId: string, from: string, to: string): Promise<Map<string, Task[]>> {
   // Ask a day either side in UTC terms, then keep exactly the Chicago days wanted.
-  const rows = check(
-    await supabase
+  const since = `${addDays(from, -1)}T00:00:00Z`
+  const until = `${addDays(to, 2)}T00:00:00Z`
+  const [assigned, completed] = await Promise.all([
+    supabase
+      .from('tasks')
+      .select(`${TASK_COLUMNS}, mine:task_assignees!inner(profile_id)`)
+      .eq('mine.profile_id', personId)
+      .eq('status', 'done')
+      .gte('completed_at', since)
+      .lt('completed_at', until),
+    supabase
       .from('tasks')
       .select(TASK_COLUMNS)
-      .eq('status', 'done')
       .eq('completed_by', personId)
-      .gte('completed_at', `${addDays(from, -1)}T00:00:00Z`)
-      .lt('completed_at', `${addDays(to, 2)}T00:00:00Z`)
-      .order('completed_at', { ascending: true }),
-  )
+      .eq('status', 'done')
+      .gte('completed_at', since)
+      .lt('completed_at', until),
+  ])
+  const byId = new Map<string, Task>()
+  for (const row of [...(check(assigned) as unknown as (TaskRow & { mine?: unknown })[]), ...(check(completed) as unknown as TaskRow[])]) {
+    const { mine: _mine, ...rest } = row as TaskRow & { mine?: unknown }
+    const [task] = shape([rest as TaskRow])
+    byId.set(task.id, task)
+  }
   const byDay = new Map<string, Task[]>()
-  for (const task of shape(rows as unknown as TaskRow[])) {
+  for (const task of [...byId.values()].sort((a, b) => (a.completed_at! < b.completed_at! ? -1 : 1))) {
     const day = chicagoDateOf(task.completed_at!)
     if (day < from || day > to) continue
     byDay.set(day, [...(byDay.get(day) ?? []), task])

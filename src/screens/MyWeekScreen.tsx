@@ -3,24 +3,25 @@ import { Link } from 'react-router-dom'
 import { useProfile } from '../lib/useProfile.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import { addDays, formatHours, formatMinutes, formatRelativeDate, formatShortDate, todayChicago, weekStart, withinEditWindow } from '../lib/dates.ts'
-import { loadOwnEntries } from '../lib/queries.ts'
+import { loadOwnEntries, loadPeople } from '../lib/queries.ts'
 import { supabase } from '../lib/supabase.ts'
-import { COUNT_FIELDS, describeCounts, type Counts, type EntryWithTime } from '../lib/types.ts'
+import { COUNT_FIELDS, describeCounts, type Counts, type EntryWithTime, type Person } from '../lib/types.ts'
 import { ErrorNote, Loading } from '../components/ui.tsx'
 import { CompletedTasks } from '../components/CompletedTasks.tsx'
-import { loadTasksCompletedBy, type Task } from '../lib/tasks.ts'
+import { loadTasksDoneFor, type Task } from '../lib/tasks.ts'
 
 interface Data {
   entries: EntryWithTime[]
   orderNames: Map<string, string>
   tasksDone: Map<string, Task[]>
+  people: Map<string, Person>
 }
 
 /**
  * My Week: the person's own days, orders, counts and hours for this week and
  * last week (Sunday through Saturday).  Each activity is totalled on its own; they
- * are never added together (rule 3).  Tasks the person marked done show under
- * each day.  Calendar events join this screen in session 8.
+ * are never added together (rule 3).  Tasks done that the person was on show
+ * under each day.  Calendar events join this screen in session 8.
  */
 export default function MyWeekScreen() {
   const profile = useProfile()
@@ -33,9 +34,10 @@ export default function MyWeekScreen() {
   const to = addDays(from, 6)
 
   const { state, reload } = useAsync<Data>(async () => {
-    const [entries, tasksDone] = await Promise.all([
+    const [entries, tasksDone, people] = await Promise.all([
       loadOwnEntries(profile.id, lastSunday, addDays(thisSunday, 6)),
-      loadTasksCompletedBy(profile.id, lastSunday, addDays(thisSunday, 6)),
+      loadTasksDoneFor(profile.id, lastSunday, addDays(thisSunday, 6)),
+      loadPeople(),
     ])
     const ids = [...new Set(entries.map((e) => e.order_id))]
     const orderNames = new Map<string, string>()
@@ -44,7 +46,7 @@ export default function MyWeekScreen() {
       if (error) throw new Error(error.message)
       for (const o of data as { id: string; name: string }[]) orderNames.set(o.id, o.name)
     }
-    return { entries, orderNames, tasksDone }
+    return { entries, orderNames, tasksDone, people }
   }, [profile.id, thisSunday])
 
   return (
@@ -64,7 +66,7 @@ export default function MyWeekScreen() {
 
       {state.kind === 'loading' && <Loading what="your week" />}
       {state.kind === 'error' && <ErrorNote message={state.message} onRetry={reload} />}
-      {state.kind === 'ready' && <Week entries={state.data.entries.filter((e) => e.work_date >= from && e.work_date <= to)} orderNames={state.data.orderNames} tasksDone={state.data.tasksDone} from={from} />}
+      {state.kind === 'ready' && <Week entries={state.data.entries.filter((e) => e.work_date >= from && e.work_date <= to)} orderNames={state.data.orderNames} tasksDone={state.data.tasksDone} people={state.data.people} personId={profile.id} from={from} />}
     </>
   )
 }
@@ -73,11 +75,15 @@ function Week({
   entries,
   orderNames,
   tasksDone,
+  people,
+  personId,
   from,
 }: {
   entries: EntryWithTime[]
   orderNames: Map<string, string>
   tasksDone: Map<string, Task[]>
+  people: Map<string, Person>
+  personId: string
   from: string
 }) {
   const tasksThisWeek = Array.from({ length: 7 }, (_, i) => tasksDone.get(addDays(from, i))?.length ?? 0).reduce((a, b) => a + b, 0)
@@ -106,7 +112,7 @@ function Week({
         </div>
         {tasksThisWeek > 0 && (
           <p className="muted small" style={{ margin: '8px 0 0' }}>
-            {tasksThisWeek} {tasksThisWeek === 1 ? 'task' : 'tasks'} marked done
+            {tasksThisWeek} {tasksThisWeek === 1 ? 'task' : 'tasks'} done
           </p>
         )}
       </div>
@@ -120,7 +126,7 @@ function Week({
               <strong>{formatRelativeDate(date)}</strong>
               <span className="hours">{dayEntries.length ? formatMinutes(dayMinutes) : 'Nothing logged'}</span>
             </div>
-            <CompletedTasks tasks={tasksDone.get(date)} />
+            <CompletedTasks tasks={tasksDone.get(date)} personId={personId} people={people} />
             {dayEntries.length > 0 && (
               <ul className="list">
                 {dayEntries.map((e) => {

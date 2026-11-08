@@ -104,7 +104,7 @@ Full steps with troubleshooting are in `docs/install-on-phone.md`. In short:
 
 ## Session 3 — Manager portal (complete, 2026-11-07)
 
-Done-when from the plan: create a real design and order, approve a test purchase, and close an order with the worked example's numbers (one artist 3 hours at $22, another 2 hours at $25, $40 materials, $300 price), giving $116 labor, $156 recorded cost and $144 remaining; closing refuses without a price. The automated tests do all of this with the test accounts (`tests/manager-orders.spec.ts`, `tests/manager-approvals.spec.ts`, and the privacy test's close checks). Arvin's own run-through on real data is still to do.
+Done-when from the plan: create a real design and order, approve a test purchase, and close an order with the worked example's numbers (one artist 3 hours at $22, another 2 hours at $25, $40 materials, $300 price), giving $116 labor, $156 recorded cost and $144 remaining; closing refuses without a price. The automated tests do all of this with the test accounts (`tests/manager-orders.spec.ts`, `tests/manager-approvals.spec.ts`, and the privacy test's close checks). Arvin also did it by hand on the live site on 2026-11-07, and the figures matched on screen and in the database (details under "Tested and passed at close").
 
 ### What exists now
 
@@ -145,7 +145,8 @@ Done-when from the plan: create a real design and order, approve a test purchase
 - `npx tsc -b` and `npx oxlint`: no errors.
 - `npm run build`: builds. The main file is 527 kB; the manager portal is a separate 72 kB file.
 - `npm run test`: privacy test 165 of 165, signed in as the real test artist, then all 28 screen tests passed (2.3 minutes).
-- Live site: https://ignite-tracker.pages.dev serves this version (commit `24856aa`), checked 2026-11-07 within a minute of the push. The app file Cloudflare built is byte-for-byte the one tested here, and the manager portal file, manifest and service worker all load. Nobody has signed in on the live site since this deploy yet.
+- Live site: https://ignite-tracker.pages.dev serves this version (commit `24856aa`), checked 2026-11-07 within a minute of the push. The app file Cloudflare built is byte-for-byte the one tested here, and the manager portal file, manifest and service worker all load.
+- By hand, on the live site (2026-11-07), signed in as Arvin: created the design "TEST worked example" and a 60-bottle order on it, with Test Artist as primary artist. Claude logged the hours with the two test accounts: 3 hours for Test Artist and 2 hours for Test Manager, dated 2001-01-02, the day those accounts' $22 and $25 rates are in force, so no real person got a pay rate. Test Artist sent a $1.00 studio-stock purchase, which Arvin approved. Arvin marked the order Finished and closed it: labor $116, materials $40, recorded cost $156, price $300, amount remaining $144; per delivered bottle $2.60 cost, $5.00 price, $2.40 remaining, 5 minutes. The database's own figures matched. The first close went in with $0 materials, so Arvin reopened it and closed it again with $40, which also showed Reopen keeping the earlier figures in the managers' history. Afterwards, with Arvin's OK, the test order, its entries and history, the design and the purchase were removed; the test accounts and their rates are unchanged.
 - Not tried yet: the manager screens on a real phone, real receipt photos from an iPhone, and signing in as Amelia to see her landing screen.
 
 ### Decisions made during the session
@@ -167,7 +168,7 @@ Done-when from the plan: create a real design and order, approve a test purchase
 
 ### Left unfinished or deferred
 
-- Arvin's own run-through of the done-when on real data, and the manager screens on a real phone.
+- The manager screens on a real phone.
 - The Dashboard is session 4; managers without a landing choice will open on it automatically.
 - A login email cannot be changed from People. It would need the account function; ask if it is wanted.
 - The test accounts appear in the primary-artist list on the order form.

@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-07, at the end of Session 4. Update this file at the end of every session.
+Last updated: 2026-11-08, at the end of Session 5. Update this file at the end of every session.
 
 ## Session 1 — Foundation (complete, 2026-11-06)
 
@@ -250,4 +250,69 @@ Only what the brief and build plan do not already say.
 - Seven people in the uAttend file have no tracker account yet (Jack Basso, Eleanor Harvey, Charlie Matz, Kenny Pollok, Olivia Ramirez, Alan Robles, Joe Waropay); their hours are skipped until accounts exist. Once an account is made, match the name on Imports and upload the week again.
 - The Orders export calls the cost function once per closed order; fine for a studio's order count, but worth batching if it ever feels slow.
 - The manager reports on a real phone and Amelia's landing screen: still not tried by hand.
+- Custom address, Supabase Pro, reminders and calendar sync: unchanged from session 1's list.
+
+## Session 5 — Task lists (built 2026-11-07 to 11-08; Arvin's live check pending)
+
+Done-when from the session prompt: create a weekly task for Joey and Freddy, complete it as one of them and see the next occurrence appear with the right date and only one open; add a personal item as the test artist, approve it as a manager, and see the artist's view say it was approved and where it went. The automated tests do each of these with the test accounts (`tests/tasks-manager.spec.ts`, `tests/tasks.spec.ts`), and the privacy test checks the one-open rule in the database. Arvin approved each step on screenshots and the local preview; the run-through with Joey and Freddy on the live site is still to do.
+
+### What exists now
+
+**Tasks tab** (`/tasks`), for everyone. Artists have it as a bottom tab (My Work, Tasks, My Week, Materials); managers have "Tasks" in the menu under Today. Tasks are never part of the daily entry form (rule 12; a screen test checks the form has no task wording).
+
+- **Assigned to you**: open tasks ordered overdue first, then priority (High, Normal, Low), then due date (undated last), then newest. Each shows title, note, priority, "Overdue · was due …" / "Due today" / the date, the linked order's name (tap to open), "Every week" when it repeats, and who else has it ("With Freddy", or "Just you"). A big ✓ Done button marks it done for everyone on it, recording who and when; a repeating task's confirmation says when the next one is due. "Done in the last 7 days" lists finished ones with "Done by … · time".
+- **Your list** (personal list): a one-line add box, then the person's items with Edit and Delete. The screen says managers can see the list and other artists cannot. An approved item shows "Approved → task · Went to … · approved by … · time" and can no longer be edited (it can still be deleted; the task stays).
+
+**Managers on the same tab** get a Mine / Everyone switch and a New task button. Mine is their own tasks and list, as above, plus Edit, Stop repeating and Reopen under each task.
+
+- **Everyone**: every open task in the studio with filters for person, order and due date (overdue, due today, due by the end of this week, no date), each naming everyone it is assigned to; done in the last 14 days with Reopen; and every person's personal list grouped by name, with "Approve as task" on items not yet approved.
+- **New task / Edit task** (`/manage/tasks/new`, `/manage/tasks/:id`): title, note (with a reminder to keep money out), a tick box per person (any number), priority, due date ("First due date" when it repeats), order (optional) and Repeats (every day, week, two weeks, month). Edit also has "Remove this task" with a confirmation.
+- **Approve into a task** (`/manage/tasks/approve/:itemId`): the item's words become the title; choose people, priority and due date, as the brief says.
+- **Reopen** puts a done task back to open. For a repeating task it also takes back the next occurrence its completion made, so there is still one open.
+- **Stop repeating** keeps the open one and makes no more after it.
+
+**Elsewhere**
+
+- **Order page** (artist's and manager's): "Open tasks" for that order, without repeating the order's name. An artist sees only the ones assigned to them; a manager sees all and has "+ Task for this order", which opens New task with the order filled in.
+- **My Work**: the task count is a row that opens the Tasks tab.
+- **Today**: a "Tasks due today and overdue" strip at the top (counts, then each task with who, order, priority and due); the "Needs a manager" box links the count to Everyone.
+- **Artist week** and **My Week**: "Tasks done" under each day and a count for the week (see the decision below on whose week).
+- **Exports**: a Tasks CSV (title, note, who it is assigned to, priority, due date, order, repeat, status, who completed it and when, created and edited by, and whose personal list it came from).
+
+**Database.** Two new migrations, both applied by Arvin from his terminal (`npx.cmd supabase db push --linked`) after a dry run listed only that file:
+
+- `0018` `personal_item_outcomes()`: for the caller's own approved items (a manager: all), the task's title and status, who it went to, who approved it and when. Needed because an artist cannot read a task assigned to someone else. Approved items are fixed for their owner.
+- `0019` Task series: `tasks.series_id` (the first task of a repeating series) and `series_start` (where the schedule counts from); a unique index allows **one open task per series**, so the database itself refuses a second open occurrence. `complete_task` now dates the next occurrence by the rule below. New functions `save_task` (create or edit a task and set exactly who it is assigned to, in one step; a repeating task needs a first due date) and `reopen_task`, managers only.
+
+**Files.** New: `src/lib/tasks.ts`, `src/lib/useMarkDone.tsx`, `src/components/TaskCard.tsx`, `OrderTasks.tsx`, `CompletedTasks.tsx`, `src/screens/TasksScreen.tsx`, `src/manager/TaskFormScreen.tsx`, `TasksEveryone.tsx`; tests `tests/tasks.spec.ts`, `tasks-manager.spec.ts`, `tasks-screens.spec.ts`. Changed: routes, menu and tabs, My Work, both order pages, Today, Artist week, My Week, Exports.
+
+**Tests.** Privacy test: 203 checks (31 new). As the real test artist: reading every task, assignee and personal-list row returns only its own (so no other artist's list, and no task it is not on, even the one its own item became); it sees where its own approved item went and no one else's; it cannot create, edit, assign, stop, remove, reopen or complete-for-others a task, or change an approved item or someone else's item. The test manager succeeds at each, and a weekly task has exactly one open occurrence after completion. A stricter structure check: no number column of any kind on `tasks`, `task_assignees` or `personal_items`, on top of the existing money-word check. Screen tests: 43 (6 new) in 21 files, covering the artist list order, one-tap done with who and when, the personal list, a weekly task for two people completed by the artist on a phone (next date and one open, checked in the database), reopen, stop repeating, the monthly schedule, edit, filters, phone width, approval end to end, the order page, My Work, Today, Artist week and My Week (including a shared task in both people's weeks), and the tasks CSV.
+
+### Tested and passed at close
+
+- `npx tsc -b` and `npx oxlint`: no errors.
+- `npm run build`: builds. The main file is 546 kB; the manager portal is a separate 155 kB file and the Everyone view a separate 5 kB file.
+- `npm run test` (2026-11-08): privacy test 203 of 203, signed in as the real test artist and the test manager, then all 43 screen tests passed (3.9 minutes). The first full run found one real flaw, fixed before this run: on an order page, when an artist ticked off the last open task the section vanished with its "Done" confirmation; it now stays until the confirmation has been seen.
+
+### Decisions made during the session
+
+Only what the brief and build plan do not already say.
+
+- **Next date of a repeating task** (Arvin, 2026-11-07): the next one keeps the schedule's day and skips dates already past. A weekly task due Monday Nov 2 that is done Wednesday Nov 11 comes back Monday Nov 16; done early, it comes back one step after its due date. Monthly keeps the day of the month where the month allows (Jan 31 → Feb 28 → Mar 31). Changing a repeating task's due date or repeat restarts the schedule from the new date.
+- A repeating task needs a first due date.
+- **A done task counts in the week of everyone it was assigned to** (Arvin, 2026-11-08), in My Week and Artist week, with "done by …" when someone else ticked it off. A task someone ticks off without being on it also counts in their week.
+- **Completed tasks in My Week and a tasks CSV on Exports** are built this session (Arvin, 2026-11-07); both are in the brief but were not in the session prompt.
+- Managers can remove a task (with a confirmation). The brief does not mention it; without it a mistaken task could only be marked done.
+- Reopening a repeating task takes back the next occurrence its completion made, if still open; reopening an older occurrence while a later one is open is refused.
+- An approved personal item can no longer be edited by its owner (the task took its words); it can still be deleted.
+- In Everyone (and on the manager order page, the Today strip and the CSV) every task names everyone on it; in Mine and on the artist's screens it reads "With Freddy" or "Just you".
+- Artists see only their own tasks on an order page, by the database's rule; managers see all of them.
+- Approve takes assignees, priority and due date only, as the brief says; a manager can edit the new task afterwards to add an order, note or repeat.
+
+### Left unfinished or deferred
+
+- Arvin's done-when run on the live site: a weekly task for Joey and Freddy, completed as one of them; a personal item from the test artist, approved.
+- Task reminders (10 am on the due date, once when overdue) are session 7 with the daily reminders.
+- After saving New task from an order page, the app goes to Tasks → Everyone rather than back to the order.
+- The main JavaScript file is 546 kB; splitting it is still a later clean-up.
 - Custom address, Supabase Pro, reminders and calendar sync: unchanged from session 1's list.

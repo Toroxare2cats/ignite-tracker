@@ -252,9 +252,9 @@ Only what the brief and build plan do not already say.
 - The manager reports on a real phone and Amelia's landing screen: still not tried by hand.
 - Custom address, Supabase Pro, reminders and calendar sync: unchanged from session 1's list.
 
-## Session 5 — Task lists (built 2026-11-07 to 11-08; Arvin's live check pending)
+## Session 5 — Task lists (complete, 2026-11-09)
 
-Done-when from the session prompt: create a weekly task for Joey and Freddy, complete it as one of them and see the next occurrence appear with the right date and only one open; add a personal item as the test artist, approve it as a manager, and see the artist's view say it was approved and where it went. The automated tests do each of these with the test accounts (`tests/tasks-manager.spec.ts`, `tests/tasks.spec.ts`), and the privacy test checks the one-open rule in the database. Arvin approved each step on screenshots and the local preview; the run-through with Joey and Freddy on the live site is still to do.
+Done-when from the session prompt: create a weekly task for Joey and Freddy, complete it as one of them and see the next occurrence appear with the right date and only one open; add a personal item as the test artist, approve it as a manager, and see the artist's view say it was approved and where it went. The automated tests do each of these with the test accounts (`tests/tasks-manager.spec.ts`, `tests/tasks.spec.ts`), and the privacy test checks the one-open rule in the database. Arvin approved each step on screenshots and the local preview, then did the done-when by hand on the live site on 2026-11-09 (details under "Tested and passed at close").
 
 ### What exists now
 
@@ -294,6 +294,7 @@ Done-when from the session prompt: create a weekly task for Joey and Freddy, com
 - `npm run build`: builds. The main file is 546 kB; the manager portal is a separate 155 kB file and the Everyone view a separate 5 kB file.
 - `npm run test` (2026-11-08): privacy test 203 of 203, signed in as the real test artist and the test manager, then all 43 screen tests passed (3.9 minutes). The first full run found one real flaw, fixed before this run: on an order page, when an artist ticked off the last open task the section vanished with its "Done" confirmation; it now stays until the confirmation has been seen.
 - Live site: https://ignite-tracker.pages.dev serves this version (commit `74b3187`), checked 2026-11-08 about a minute after Arvin pushed from his terminal. The main app file, the manager portal file, the Everyone file, the stylesheet and the manifest are byte-for-byte the ones tested here; the service worker has the same file list in a different order, as in session 4.
+- By hand, on the live site (2026-11-09), signed in as Arvin: created "Practice: wipe kiln shelves" for Joey and Freddy, every week, first due Friday Oct 30. Signed in as Freddy and tapped Done: the message said the next one is due Nov 13; Freddy's Tasks then showed exactly one open copy, due Nov 13, and "Done by Freddy · Nov 9, 5:56 PM" under done; Everyone showed one open task. Nov 6 had passed, so it was skipped, as decided. Then added "Practice: torch hose looks worn" to the test artist's list (and Freddy's), approved the test artist's one as a task for Arvin, and signed in as the test artist: the item read "Approved → task · Went to Arvin · approved by Arvin · Nov 9, 6:02 PM" with no Edit button, and the task itself was not on the artist's list.
 
 ### Decisions made during the session
 
@@ -312,7 +313,7 @@ Only what the brief and build plan do not already say.
 
 ### Left unfinished or deferred
 
-- Arvin's done-when run on the live site: a weekly task for Joey and Freddy, completed as one of them; a personal item from the test artist, approved.
+- Practice rows from Arvin's run-through are still in the live data: the weekly task "Practice: wipe kiln shelves" for Joey and Freddy (next one due Nov 13), the task approved from the test artist's item (assigned to Arvin), and "Practice: torch hose looks worn" on Freddy's and the test artist's lists. Remove them from Tasks (Edit → Remove this task; Delete on a list item) once they are no longer wanted.
 - Task reminders (10 am on the due date, once when overdue) are session 7 with the daily reminders.
 - After saving New task from an order page, the app goes to Tasks → Everyone rather than back to the order.
 - The main JavaScript file is 546 kB; splitting it is still a later clean-up.
